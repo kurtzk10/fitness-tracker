@@ -82,7 +82,7 @@ function sync_(b) {
 
   const lr = app.getLastRow();
   const plan = lr < 2 ? [] : app.getRange(2, 1, lr - 1, 5).getValues().filter(x => x[0])
-    .map(x => ({ exercise: x[0], muscle: x[1], sets: x[2], reps: String(x[3]), load: String(x[4]) }));
+    .map(x => ({ exercise: x[0], muscle: x[1], sets: x[2], reps: reps_(x[3], tz), load: String(x[4]) }));
   return { ok: true, rows, plan };
 }
 
@@ -112,7 +112,9 @@ function addExercise_(app, lib, p) {
   const lr = app.getLastRow();
   const names = lr < 2 ? [] : app.getRange(2, 1, lr - 1, 1).getValues().map(r => String(r[0]).toLowerCase());
   if (names.indexOf(String(p.exercise).toLowerCase()) >= 0) return;
-  app.appendRow([p.exercise, p.muscle, p.sets || 3, p.reps || '10-12', p.load || 'BW']);
+  const r = app.getLastRow() + 1;
+  app.getRange(r, 4).setNumberFormat('@');            // keep "10-12" as text, never a date
+  app.getRange(r, 1, 1, 5).setValues([[p.exercise, p.muscle, p.sets || 3, String(p.reps || '10-12'), p.load || 'BW']]);
   ensureLibrary_(lib, p.exercise, p.muscle, p.load);
 }
 
@@ -124,4 +126,9 @@ function ensureLibrary_(lib, name, muscle, load) {
     lib.getRange(3 + i, 1, 1, 3).setValues([[name, muscle, /bw/i.test(String(load)) ? 'Bodyweight' : 'Dumbbell']]);
     return;
   }
+}
+
+// If a reps cell was ever auto-converted to a date (e.g. "10-12" -> Oct 12), turn it back into "10-12"
+function reps_(v, tz) {
+  return v instanceof Date ? Utilities.formatDate(v, tz, 'M-d') : String(v);
 }
