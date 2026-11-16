@@ -1,5 +1,6 @@
 /**
  * Full-Body Tracker API (Google Apps Script, bound to the sheet).
+ * Sheet tabs required: Log, App_Library.
  * Deploy: Deploy > New deployment > Web app
  *   Execute as: Me   |   Who has access: Anyone
  * Then paste the /exec URL and the TOKEN below into the app's Connection box.
@@ -7,7 +8,6 @@
 const TOKEN = 'CHANGE-ME-to-a-long-random-string';
 
 const LOG_FIRST = 4;          // first data row on Log
-const LIB_LAST = 30;          // Library lookups read rows 3..30
 
 function doGet() { return out_({ ok: true, msg: 'Full-Body Tracker API is running' }); }
 
@@ -32,10 +32,10 @@ function out_(o) {
 function sync_(b) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
-  const log = ss.getSheetByName('Log'), lib = ss.getSheetByName('Library'), app = ss.getSheetByName('App_Library');
+  const log = ss.getSheetByName('Log'), app = ss.getSheetByName('App_Library');
 
   // 1) new exercises
-  (b.plan || []).forEach(p => addExercise_(app, lib, p));
+  (b.plan || []).forEach(p => addExercise_(app, p));
 
   // 2) deletes (by app id), bottom-up so row numbers stay valid
   const del = new Set(b.del || []);
@@ -50,7 +50,7 @@ function sync_(b) {
     const have = new Set(allIds_(log));
     rowsIn.forEach(r => {
       if (have.has(r.id)) return;
-      ensureLibrary_(lib, r.exercise, r.muscle, r.load);
+      addExercise_(app, { exercise: r.exercise, muscle: r.muscle, load: r.load });  // no-op if it already exists
       const row = nextRow_(log);
       ensureFormulas_(log, row);
       const n = v => (v === '' || v == null) ? '' : Number(v);
@@ -82,7 +82,7 @@ function sync_(b) {
 
   const lr = app.getLastRow();
   const plan = lr < 2 ? [] : app.getRange(2, 1, lr - 1, 5).getValues().filter(x => x[0])
-    .map(x => ({ exercise: x[0], muscle: x[1], sets: x[2], reps: String(x[3]), load: String(x[4]) }));
+    .map(x => ({ exercise: x[0], muscle: x[1], sets: x[2], reps: reps_(x[3], tz), load: String(x[4]) }));
   return { ok: true, rows, plan };
 }
 
@@ -108,20 +108,16 @@ function ensureFormulas_(log, row) {
   log.getRange(LOG_FIRST, 10, 1, 4).copyTo(log.getRange(row, 10, 1, 4), P, false);
 }
 
-function addExercise_(app, lib, p) {
+function addExercise_(app, p) {
   const lr = app.getLastRow();
   const names = lr < 2 ? [] : app.getRange(2, 1, lr - 1, 1).getValues().map(r => String(r[0]).toLowerCase());
   if (names.indexOf(String(p.exercise).toLowerCase()) >= 0) return;
-  app.appendRow([p.exercise, p.muscle, p.sets || 3, p.reps || '10-12', p.load || 'BW']);
-  ensureLibrary_(lib, p.exercise, p.muscle, p.load);
+  const r = app.getLastRow() + 1;
+  app.getRange(r, 4).setNumberFormat('@');            // keep "10-12" as text, never a date
+  app.getRange(r, 1, 1, 5).setValues([[p.exercise, p.muscle, p.sets || 3, String(p.reps || '10-12'), p.load || 'BW']]);
 }
 
-// Library tab (A:C) feeds the Muscle lookup on Log; it only reads rows 3..30
-function ensureLibrary_(lib, name, muscle, load) {
-  const a = lib.getRange(3, 1, LIB_LAST - 2, 1).getValues();
-  for (let i = 0; i < a.length; i++) if (String(a[i][0]).toLowerCase() === String(name).toLowerCase()) return;
-  for (let i = 0; i < a.length; i++) if (a[i][0] === '') {
-    lib.getRange(3 + i, 1, 1, 3).setValues([[name, muscle, /bw/i.test(String(load)) ? 'Bodyweight' : 'Dumbbell']]);
-    return;
-  }
+// If a reps cell was ever auto-converted to a date (e.g. "10-12" -> Oct 12), turn it back into "10-12"
+function reps_(v, tz) {
+  return v instanceof Date ? Utilities.formatDate(v, tz, 'M-d') : String(v);
 }

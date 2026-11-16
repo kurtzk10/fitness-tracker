@@ -32,6 +32,12 @@ th,td{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:left}
 th{color:var(--mu);font-weight:600}
 .tag{font-size:12px;font-weight:600}.OK{color:var(--ok)}.Low{color:var(--lo)}.High{color:var(--hi)}
 .x{padding:2px 8px;color:var(--mu)}
+.cb{display:flex;align-items:stretch}.cb input{flex:1;min-width:0;border-radius:8px 0 0 8px;border-right:0}
+.cb button{padding:0 12px;border-radius:0 8px 8px 0;line-height:1}.cb:focus-within input,.cb:focus-within button{border-color:var(--ac)}
+.cb input.invalid+button{border-color:var(--hi)}select:disabled{opacity:.6;cursor:not-allowed}
+.dd{position:absolute;left:0;right:0;top:100%;z-index:20;max-height:260px;overflow-y:auto;background:var(--card);border:1px solid var(--bd);border-radius:8px;margin-top:2px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.dd div{padding:9px 10px;display:flex;justify-content:space-between;gap:8px;cursor:pointer;border-bottom:1px solid var(--bd)}.dd div:last-child{border-bottom:0}
+.dd div span{color:var(--mu);font-size:12px}.dd div.on,.dd div:hover{background:var(--bg)}.dd .none{color:var(--mu);cursor:default;display:block}
 #st{font-size:12px;color:var(--mu)}
 .err{color:var(--hi);font-size:12px;margin-top:3px}.sub.bad{color:var(--hi)}.sub.good{color:var(--ok)}input.invalid,select.invalid{border-color:var(--hi)}
 </style>
@@ -62,8 +68,8 @@ th{color:var(--mu);font-weight:600}
 <div><label>Day #</label><select id="day"><option value="">–</option><option>1</option><option>2</option><option>3</option></select></div>
 </div>
 <div class="grid" style="margin-top:10px;grid-template-columns:2fr 1fr 1fr">
-<div><label>Exercise</label><input id="ex" list="exs" placeholder="Pick or type…"><datalist id="exs"></datalist></div>
-<div><label>Muscle</label><select id="mus"></select></div>
+<div style="position:relative"><label>Exercise</label><div class="cb"><input id="ex" autocomplete="off" placeholder="Pick or type…"><button type="button" id="exb" title="Show all exercises" aria-label="Show all exercises">▾</button></div><div id="exl" class="dd" hidden></div></div>
+<div><label id="mlab">Muscle</label><select id="mus"></select></div>
 <div><label>Load (lb, or BW)</label><input id="load" placeholder="11 or BW"></div>
 </div>
 <div class="sets" style="margin-top:10px">
@@ -111,33 +117,57 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const muscleOf=e=>(plan.find(p=>p.exercise===e)||rows.find(r=>r.exercise===e)||{}).muscle;
 $("today").textContent="Today: "+new Date().toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric",year:"numeric"});
 $("date").value=today;
-["mus","nm"].forEach(i=>$(i).innerHTML=MUSCLES.map(m=>`<option>${m}</option>`).join(""));
-$("ex").addEventListener("input",()=>{const m=muscleOf($("ex").value);if(m)$("mus").value=m});
+["mus","nm"].forEach(i=>$(i).innerHTML=(i==="mus"?'<option value="">Any muscle</option>':'<option value="">Choose muscle…</option>')+MUSCLES.map(m=>`<option>${m}</option>`).join(""));
+let AUTO=false,DDI=-1;
+const names=()=>[...new Set([...plan.map(p=>p.exercise),...rows.map(r=>r.exercise)])].sort((a,b)=>a.localeCompare(b));
+const canon=v=>{v=v.trim().toLowerCase();return v&&names().find(n=>n.toLowerCase()===v)||""};
+function lockMus(){const m=$("mus"),c=canon($("ex").value);
+  if(c){m.value=muscleOf(c)||m.value;m.disabled=true;AUTO=true}else{if(AUTO){m.value="";AUTO=false}m.disabled=false}
+  $("mlab").textContent=c?"Muscle (set by exercise)":"Muscle"}
+const items=()=>[...$("exl").querySelectorAll("[data-v]")];
+function showDD(all){
+  const q=$("ex").value.trim().toLowerCase(),mu=$("mus").disabled?"":$("mus").value;
+  let l=names();if(mu)l=l.filter(n=>muscleOf(n)===mu);if(!all&&q)l=l.filter(n=>n.toLowerCase().includes(q));
+  DDI=-1;$("exl").innerHTML=l.length?l.map(n=>`<div data-v="${esc(n)}">${esc(n)}<span>${esc(muscleOf(n)||"")}</span></div>`).join(""):`<div class="none">${mu?"No "+esc(mu)+" exercise matches. ":"No match. "}Keep typing to add a new one.</div>`;
+  $("exl").hidden=false}
+function pick(v){$("ex").value=v;$("exl").hidden=true;lockMus();$("load").focus()}
+$("ex").addEventListener("input",()=>{lockMus();showDD(false)});
+$("exb").onclick=()=>{if($("exl").hidden){showDD(true);$("ex").focus()}else $("exl").hidden=true};
+$("mus").addEventListener("change",()=>{if(!$("exl").hidden)showDD(false)});
+$("exl").addEventListener("mousedown",e=>{e.preventDefault();const d=e.target.closest("[data-v]");if(d)pick(d.dataset.v)});
+document.addEventListener("mousedown",e=>{if(!e.target.closest("#exl,.cb"))$("exl").hidden=true});
+$("ex").addEventListener("keydown",e=>{
+  if(e.key==="Escape"||e.key==="Tab"){$("exl").hidden=true;return}
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();if($("exl").hidden)showDD(false);const it=items();if(!it.length)return;
+    DDI=(DDI+(e.key==="ArrowDown"?1:-1)+it.length)%it.length;it.forEach((x,i)=>x.classList.toggle("on",i===DDI));it[DDI].scrollIntoView({block:"nearest"})}
+  else if(e.key==="Enter"&&!$("exl").hidden&&DDI>=0){e.preventDefault();pick(items()[DDI].dataset.v)}
+});
 
 const DAY=864e5;
 function recommend(){
+  const P=(Array.isArray(plan)?plan:[]).filter(p=>p&&p.exercise&&p.muscle),R=(Array.isArray(rows)?rows:[]).filter(r=>r&&r.exercise);
   const wk=monday(today),done={},last={},lastEx={};
-  rows.forEach(r=>{const t=new Date((r.date||today)+"T12:00:00").getTime();
-    if(monday(r.date||today)===wk)done[r.muscle]=(done[r.muscle]||0)+calc(r).n;
-    last[r.muscle]=Math.max(last[r.muscle]||0,t);lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t)});
+  R.forEach(r=>{const d=r.date||today,t=new Date(d+"T12:00:00").getTime()||0;
+    if(r.muscle){if(monday(d)===wk)done[r.muscle]=(done[r.muscle]||0)+calc(r).n;last[r.muscle]=Math.max(last[r.muscle]||0,t)}
+    lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t)});
   const now=new Date(today+"T12:00:00").getTime();
-  const need=MUSCLES.filter(m=>TARGET[m]).map(m=>{const d=done[m]||0,[mn,mx]=TARGET[m];return{m,d,mn,mx,left:Math.max(0,mn-d),recent:last[m]&&now-last[m]<2*DAY}})
+  const need=MUSCLES.filter(m=>TARGET[m]).map(m=>{const d=done[m]||0,[mn,mx]=TARGET[m];return{m,d,mn,mx,left:Math.max(0,mn-d),recent:!!(last[m]&&now-last[m]<2*DAY)}})
     .filter(o=>o.left>0).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,4);
   const tot=Object.values(done).reduce((x,y)=>x+y,0);
   $("hint").textContent=`Week of ${fmt(wk)}: ${tot} sets logged. Muscles furthest below their weekly minimum come first.`;
   let c="<tr><th>Exercise</th><th>Muscle</th><th>Sets×Reps</th><th>Load</th><th>Why</th><th></th></tr>",n=0;
   for(const o of need){
     let left=Math.min(o.left,6);
-    const exs=plan.filter(p=>p.muscle===o.m).sort((a,b)=>(lastEx[a.exercise]||0)-(lastEx[b.exercise]||0));
+    const exs=P.filter(p=>p.muscle===o.m).sort((a,b)=>(lastEx[a.exercise]||0)-(lastEx[b.exercise]||0));
     for(const p of exs){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;
-      const lr=rows.filter(r=>r.exercise===p.exercise).pop(),ld=lr?lr.load:p.load||"BW";
-      c+=`<tr><td>${esc(p.exercise)}</td><td>${esc(o.m)}</td><td>${k}×${esc(p.reps)}</td><td>${esc(ld)}</td><td>${o.d} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`}
+      const lr=R.filter(r=>r.exercise===p.exercise).pop(),ld=(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW");
+      c+=`<tr><td>${esc(p.exercise)}</td><td>${esc(o.m)}</td><td>${k}×${esc(p.reps||"10-12")}</td><td>${esc(ld)}</td><td>${o.d} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`}
   }
   $("circ").innerHTML=n?c:"<tr><td>Every muscle has reached its weekly minimum. Rest, or add sets toward the upper end of the range.</td></tr>";
 }
 
 function render(){
-  $("exs").innerHTML=[...new Set([...plan.map(p=>p.exercise),...rows.map(r=>r.exercise)])].map(e=>`<option value="${esc(e)}">`).join("");
+  lockMus();
   try{recommend()}catch(e){$("hint").textContent="Couldn’t build recommendations: "+e.message}
   const wks=[...new Set(rows.map(r=>monday(r.date||today)))].sort();
   const cur=$("pw").value||wks[wks.length-1]||monday(today);
@@ -168,8 +198,9 @@ $("pw").onchange=render;$("cm").onchange=render;
 const say=(id,t,c)=>{$(id).textContent=t;$(id).className="sub "+(c||"");};
 async function saveRows(){persist();const ok=await sync();if(!ok)say("msg","Saved on this device; it will sync to Google Sheets when connected.","bad");return ok}
 async function savePlan(){persist();const ok=await sync();if(!ok)say("msg2","Saved on this device; it will sync to Google Sheets when connected.","bad");return ok}
-function clearErr(ids){ids.forEach(i=>{const el=$(i);el.classList.remove("invalid");const e=el.parentElement.querySelector(".err");if(e)e.remove()})}
-function fail(i,t){const el=$(i);el.classList.add("invalid");const d=document.createElement("div");d.className="err";d.textContent=t;el.parentElement.appendChild(d);return 1}
+const par=el=>(el.closest(".cb")||el).parentElement;
+function clearErr(ids){ids.forEach(i=>{const el=$(i);el.classList.remove("invalid");const e=par(el).querySelector(".err");if(e)e.remove()})}
+function fail(i,t){const el=$(i);el.classList.add("invalid");const d=document.createElement("div");d.className="err";d.textContent=t;par(el).appendChild(d);return 1}
 const okLoad=v=>v===""||/^bw$/i.test(v)||(/^\d+(\.\d+)?$/.test(v));
 $("add").onclick=async()=>{
   const F=["date","ex","mus","load","s1","s2","s3"];clearErr(F);let bad=0;
@@ -190,19 +221,30 @@ $("add").onclick=async()=>{
   const ok=await saveRows();if(ok)say("msg","Added and saved ✓","good");
 };
 $("addex").onclick=async()=>{
-  clearErr(["nn","nm","nr","nl"]);let bad=0;const n=$("nn").value.trim(),ld=$("nl").value.trim();
-  if(!n)bad+=fail("nn","Enter a name.");
-  else if(plan.some(p=>p.exercise.toLowerCase()===n.toLowerCase()))bad+=fail("nn","That exercise is already in the library.");
-  if(!$("nm").value)bad+=fail("nm","Choose a muscle.");
-  if(!okLoad(ld))bad+=fail("nl","Use a number like 11, or BW.");
-  if(bad){say("msg2","Fix the marked field"+(bad>1?"s":"")+".","bad");return}
-  plan.push({new:1,exercise:n,muscle:$("nm").value,sets:3,reps:$("nr").value.trim()||"10-12",load:ld||"BW"});
-  $("nn").value="";try{render()}catch(e){console.error(e)}
+  clearErr(["nn","nm","nr","nl"]);let bad=0,first="";
+  const f=(i,t)=>{first=first||t;return fail(i,t)};
+  const n=$("nn").value.trim().replace(/\s+/g," "),ld=$("nl").value.trim(),m=$("nm").value;
+  if(!n)bad+=f("nn","Enter an exercise name.");
+  else if(n.length>60)bad+=f("nn","Keep the name under 60 characters.");
+  else{const dup=names().find(x=>x.toLowerCase()===n.toLowerCase());
+    if(dup)bad+=f("nn",`"${dup}" is already in the library${muscleOf(dup)?" under "+muscleOf(dup):""}.`)}
+  if(!m)bad+=f("nm","Choose the muscle this exercise targets.");
+  else if(!MUSCLES.includes(m))bad+=f("nm","Pick a muscle from the list.");
+  if(!okLoad(ld))bad+=f("nl","Use a number like 11, or BW.");
+  if(bad){say("msg2",bad>1?`Fix the ${bad} marked fields. ${first}`:first,"bad");return}
+  plan.push({new:1,exercise:n,muscle:m,sets:3,reps:$("nr").value.trim()||"10-12",load:ld||"BW"});
+  $("nn").value="";$("nm").value="";try{render()}catch(e){console.error(e)}
   const ok=await savePlan();if(ok)say("msg2","Added to the library ✓","good");
 };
 $("circ").onclick=e=>{
-  const u=e.target.closest("button[data-use]");
-  if(u){$("ex").value=u.dataset.use;$("mus").value=muscleOf(u.dataset.use)||$("mus").value;$("load").value=u.dataset.load;$("s1").focus();$("ex").scrollIntoView({block:"center"})}
+  const u=e.target.closest&&e.target.closest("button[data-use]");
+  if(!u||!$("circ").contains(u))return;
+  const name=u.dataset.use||"";if(!name)return;
+  clearErr(["ex","mus","load"]);
+  $("ex").value=name;lockMus();$("exl").hidden=true;$("load").value=u.dataset.load||"";
+  const calm=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $("ex").scrollIntoView({behavior:calm?"auto":"smooth",block:"center"});
+  setTimeout(()=>$("s1").focus({preventScroll:true}),calm?0:350);
 };
 $("log").onclick=async e=>{const b=e.target.closest("button[data-i]");if(!b||!confirm("Delete this entry?"))return;DEL.push(rows.splice(+b.dataset.i,1)[0].id);render();await saveRows()};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
