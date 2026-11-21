@@ -249,7 +249,7 @@ function recommend(){
     lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t)});
   const now=new Date(today+"T12:00:00").getTime();
   const need=MUSCLES.filter(m=>TARGET[m]).map(m=>{const d=done[m]||0,[mn,mx]=TARGET[m];return{m,d,mn,mx,left:Math.max(0,mn-d),recent:!!(last[m]&&now-last[m]<2*DAY)}})
-    .filter(o=>o.left>0).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,4);
+    .filter(o=>o.left>0&&P.some(p=>p.muscle===o.m)).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,4);
   const tot=Object.values(done).reduce((x,y)=>x+y,0);
   $("hint").textContent=`Week of ${fmt(wk)}: ${tot} sets logged. Muscles furthest below their weekly minimum come first.`;
   let c="<tr><th>Exercise</th><th>Muscle</th><th>Sets×Reps</th><th>Load</th><th>Why</th><th></th></tr>",n=0;
@@ -257,7 +257,7 @@ function recommend(){
     let left=Math.min(o.left,6);
     const exs=P.filter(p=>p.muscle===o.m).sort((a,b)=>(lastEx[a.exercise]||0)-(lastEx[b.exercise]||0));
     for(const p of exs){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;
-      const lr=R.filter(r=>r.exercise===p.exercise).pop(),ld=(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW");
+      const lr=R.filter(r=>r.exercise===p.exercise).sort((a,b)=>String(a.date).localeCompare(String(b.date))).pop(),ld=(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW");
       c+=`<tr><td>${esc(p.exercise)}</td><td>${esc(o.m)}</td><td>${k}×${esc(p.reps||"10-12")}</td><td>${esc(ld)}</td><td>${o.d} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}${PGX[p.exercise]?` <span class="tag ${PGX[p.exercise].kind}">${PGX[p.exercise].kind==="up"?"↑ progress":"⏸ stalled"}</span>`:""}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`}
   }
   $("circ").innerHTML=n?c:"<tr><td>Every muscle has reached its weekly minimum. Rest, or add sets toward the upper end of the range.</td></tr>";
