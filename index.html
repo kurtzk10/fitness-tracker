@@ -133,6 +133,7 @@ const $=id=>document.getElementById(id);
 let rows=[],plan=[],lref=null,pref=null;
 const iso=d=>{const x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
 const today=iso(new Date());
+const nd=d=>{const s=String(d==null?"":d);if(/^\d{4}-\d\d-\d\d$/.test(s))return s;const x=new Date(d);return isNaN(x)?"":iso(x)}; // any date-like value -> YYYY-MM-DD
 const monday=s=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
 const fmt=s=>new Date(s+"T12:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"});
 const reps=r=>[r.s1,r.s2,r.s3].map(Number).filter(n=>n>0);
@@ -342,11 +343,11 @@ $("log").onclick=async e=>{const b=e.target.closest("button[data-i]");if(!b||!co
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const LS=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const SV=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-let CFG=LS("fbt.cfg")||{},DEL=LS("fbt.del")||[],busy=false,again=false;
+let CFG=LS("fbt.cfg")||{},DEL=LS("fbt.del")||[],busy=false,again=false,waiters=[];
 const persist=()=>{SV("fbt.rows",rows);SV("fbt.plan",plan);SV("fbt.del",DEL)};
 async function sync(){
   if(!CFG.url){$("cfgcard").hidden=false;$("st").textContent="Not connected: data is saved on this device only.";return false}
-  if(busy){again=true;return false}
+  if(busy){again=true;return new Promise(r=>waiters.push(r))}
   busy=true;$("st").textContent="Syncing…";let ok=false;
   try{
     const out={rows:rows.filter(r=>!r.synced),del:DEL.slice(),plan:plan.filter(p=>p.new)};
@@ -355,12 +356,13 @@ async function sync(){
     const sentR=new Set(out.rows.map(r=>r.id)),sentD=new Set(out.del);
     const lateR=rows.filter(r=>!r.synced&&!sentR.has(r.id)),lateP=plan.filter(p=>p.new&&!out.plan.includes(p));
     DEL=DEL.filter(i=>!sentD.has(i));
-    rows=j.rows.filter(r=>!DEL.includes(r.id)).map(r=>({...r,synced:true})).concat(lateR);
+    rows=j.rows.filter(r=>!DEL.includes(r.id)).map(r=>({...r,date:nd(r.date),synced:true})).concat(lateR);
     plan=j.plan.concat(lateP);persist();
     $("st").textContent="Synced ✓ "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
     $("cfgcard").hidden=true;render();ok=true;
   }catch(e){$("st").textContent="Offline, saved on this device ("+(e.message||e)+")"}
-  busy=false;if(again){again=false;sync()}
+  busy=false;if(again){again=false;ok=await sync()}
+  waiters.splice(0).forEach(f=>f(ok));
   return ok;
 }
 ["mouseover","click"].forEach(ev=>$("cal").addEventListener(ev,e=>{const c=e.target.closest&&e.target.closest("i[data-t]");if(c)$("caltip").textContent=c.dataset.t}));
