@@ -170,6 +170,10 @@ $("ex").addEventListener("keydown",e=>{
 
 const DAY=864e5;
 const LOADS=[6,11,16]; // dumbbell weights you own (lb); add to this list if you buy heavier ones
+// Next harder step for an exercise once it tops its range (used for bodyweight moves and at your heaviest dumbbell)
+const LADDER={"Knee push-up":"Incline push-up (step)","Incline push-up (step)":"Push-up (floor)","Push-up (floor)":"Push-up (feet elevated)","Glute bridge":"Single-leg glute bridge","Goblet squat":"Bulgarian split squat","Reverse lunge":"Bulgarian split squat","Romanian deadlift":"Single-leg Romanian deadlift"};
+// Starter exercises added to your library once (name, muscle, sets, reps, start load)
+const SEED=[["Push-up (floor)","Chest",3,"8-12","BW"],["Push-up (feet elevated)","Chest",3,"8-12","BW"],["Overhead press","Side delts",3,"10-12",11],["Reverse lunge","Quads",3,"10-12",11],["Bulgarian split squat","Quads",3,"8-12",11],["Glute bridge","Hamstrings/Glutes",3,"12-15","BW"],["Single-leg glute bridge","Hamstrings/Glutes",3,"10-12","BW"],["Single-leg Romanian deadlift","Hamstrings/Glutes",3,"10-12",11],["Prone T raise","Rear delts",2,"12-15",6]];
 let PGX={};
 const repRange=s=>{const m=String(s||"").match(/^\s*(\d+)\s*(?:-\s*(\d+))?\s*$/);return m?[+m[1],+(m[2]||m[1])]:null};
 function progress(){
@@ -183,10 +187,11 @@ function progress(){
     const top=s=>s.a.length>=2&&s.a.every(n=>n>=hi),prev=ss[ss.length-2];
     if(prev.ld===L.ld&&top(prev)&&top(L)){
       const cur=parseFloat(L.ld),nx=isNaN(cur)?null:LOADS.find(x=>x>cur);
-      out[p.exercise]={kind:"up",msg:isNaN(cur)
-        ?`Top of the range (${hi}) on every set twice. Slow the lowering (3 s + a pause), then try a harder variation.`
+      const nxE=LADDER[p.exercise],nxP=nxE&&P.find(q=>q.exercise===nxE),step=nxP?` Next step: ${nxE}, starting at the bottom of its range.`:"";
+      out[p.exercise]={kind:"up",next:nxP?nxE:"",nextLoad:nxP?String(nxP.load||"BW"):"",msg:isNaN(cur)
+        ?`Top of the range (${hi}) on every set twice. Slow the lowering (3 s + a pause), then try a harder variation.${step}`
         :nx?`Top of the range (${hi}) on every set twice at ${L.ld} lb. Slow the lowering (3 s + a pause) first; when that's easy, move to ${nx} lb and restart at ${lo} reps.`
-        :`Top of the range (${hi}) on every set twice at ${L.ld} lb, your heaviest. Slow the lowering (4 s + a pause) or add a set.`};
+        :`Top of the range (${hi}) on every set twice at ${L.ld} lb, your heaviest. Slow the lowering (4 s + a pause) or add a set.${step}`};
       continue}
     const W=ss.filter(s=>s.ld===L.ld&&L.t-s.t<=21*DAY);
     if(W.length>=3&&L.t-W[0].t>=14*DAY&&sum(L)<=Math.max(...W.slice(0,-1).map(sum)))
@@ -195,7 +200,7 @@ function progress(){
   return out}
 function showProg(){
   const k=Object.keys(PGX);
-  $("pg").innerHTML=k.length?"<h2 style='margin:14px 0 4px'>Progression</h2>"+k.map(e=>`<div class="pgi"><b>${esc(e)}</b> <span class="tag ${PGX[e].kind}">${PGX[e].kind==="up"?"↑ Ready to progress":"⏸ Stalled"}</span><div class="sub" style="margin:2px 0 0">${esc(PGX[e].msg)}</div></div>`).join(""):""}
+  $("pg").innerHTML=k.length?"<h2 style='margin:14px 0 4px'>Progression</h2>"+k.map(e=>`<div class="pgi"><b>${esc(e)}</b> <span class="tag ${PGX[e].kind}">${PGX[e].kind==="up"?"↑ Ready to progress":"⏸ Stalled"}</span><div class="sub" style="margin:2px 0 0">${esc(PGX[e].msg)}</div>${PGX[e].next?`<div style="margin-top:6px"><button data-use="${esc(PGX[e].next)}" data-load="${esc(PGX[e].nextLoad)}">Log ${esc(PGX[e].next)}</button></div>`:""}</div>`).join(""):""}
 const GOAL=3; // workouts per week that keep a streak alive (edit to match your plan)
 let MON=null; // month shown in the calendar: {y,m}
 const addW=(w,n)=>{const d=new Date(w+"T12:00:00");d.setDate(d.getDate()+7*n);return iso(d)};
@@ -329,9 +334,9 @@ $("addex").onclick=async()=>{
   $("nn").value="";$("nm").value="";try{render()}catch(e){console.error(e)}
   const ok=await savePlan();if(ok)say("msg2","Added to the library ✓","good");
 };
-$("circ").onclick=e=>{
+const useEx=e=>{
   const u=e.target.closest&&e.target.closest("button[data-use]");
-  if(!u||!$("circ").contains(u))return;
+  if(!u||!e.currentTarget.contains(u))return;
   const name=u.dataset.use||"";if(!name)return;
   clearErr(["ex","mus","load"]);
   $("ex").value=name;lockMus();$("exl").hidden=true;$("load").value=u.dataset.load||"";
@@ -339,6 +344,7 @@ $("circ").onclick=e=>{
   $("ex").scrollIntoView({behavior:calm?"auto":"smooth",block:"center"});
   setTimeout(()=>$("s1").focus({preventScroll:true}),calm?0:350);
 };
+$("circ").onclick=useEx;$("pg").onclick=useEx;
 $("log").onclick=async e=>{const b=e.target.closest("button[data-i]");if(!b||!confirm("Delete this entry?"))return;DEL.push(rows.splice(+b.dataset.i,1)[0].id);render();await saveRows()};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const LS=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
@@ -376,7 +382,9 @@ $("csv").onclick=()=>{
   rows.forEach(r=>{const c=calc(r);L.push([r.date,r.plan,monday(r.date||today),r.day,r.exercise,r.load,r.s1,r.s2,r.s3,r.muscle,c.n,c.t,c.v,r.notes].map(q).join(","))});
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([L.join("\n")],{type:"text/csv"}));a.download="fitness-log.csv";a.click();
 };
-rows=LS("fbt.rows")||[];plan=LS("fbt.plan")||[];render();sync();
+rows=LS("fbt.rows")||[];plan=LS("fbt.plan")||[];
+if(!LS("fbt.seed1")){const have=new Set(names().map(n=>n.toLowerCase()));SEED.forEach(([exercise,muscle,sets,reps,load])=>{if(!have.has(exercise.toLowerCase()))plan.push({new:1,exercise,muscle,sets,reps,load})});SV("fbt.seed1",1);persist()}
+render();sync();
 addEventListener("online",()=>sync());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
