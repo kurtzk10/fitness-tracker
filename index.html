@@ -127,8 +127,8 @@ th{color:var(--mu);font-weight:600}
 </section>
 </main>
 <script>
-const MUSCLES=["Chest","Back","Side delts","Rear delts","Biceps","Triceps","Quads","Hamstrings/Glutes","Calves"];
-const TARGET={"Chest":[8,12],"Back":[8,12],"Side delts":[6,12],"Rear delts":[4,8],"Biceps":[6,10],"Triceps":[6,10],"Quads":[4,8],"Hamstrings/Glutes":[3,8]};
+const MUSCLES=["Chest","Back","Side delts","Rear delts","Biceps","Triceps","Quads","Hamstrings/Glutes","Calves","Core"];
+const TARGET={"Chest":[8,12],"Back":[8,12],"Side delts":[6,12],"Rear delts":[4,8],"Biceps":[6,10],"Triceps":[6,10],"Quads":[4,8],"Hamstrings/Glutes":[3,8],"Calves":[4,8],"Core":[4,10]};
 const $=id=>document.getElementById(id);
 let rows=[],plan=[],lref=null,pref=null;
 const iso=d=>{const x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
@@ -171,9 +171,9 @@ $("ex").addEventListener("keydown",e=>{
 const DAY=864e5;
 const LOADS=[6,11,16]; // dumbbell weights you own (lb); add to this list if you buy heavier ones
 // Next harder step for an exercise once it tops its range (used for bodyweight moves and at your heaviest dumbbell)
-const LADDER={"Knee push-up":"Incline push-up (step)","Incline push-up (step)":"Push-up (floor)","Push-up (floor)":"Push-up (feet elevated)","Glute bridge":"Single-leg glute bridge","Goblet squat":"Bulgarian split squat","Reverse lunge":"Bulgarian split squat","Romanian deadlift":"Single-leg Romanian deadlift"};
+const LADDER={"Knee push-up":"Incline push-up (step)","Incline push-up (step)":"Push-up (floor)","Push-up (floor)":"Push-up (feet elevated)","Glute bridge":"Single-leg glute bridge","Goblet squat":"Bulgarian split squat","Reverse lunge":"Bulgarian split squat","Romanian deadlift":"Single-leg Romanian deadlift","Dead bug":"Bicycle crunch","Bicycle crunch":"Weighted crunch"};
 // Starter exercises added to your library once (name, muscle, sets, reps, start load)
-const SEED=[["Push-up (floor)","Chest",3,"8-12","BW"],["Push-up (feet elevated)","Chest",3,"8-12","BW"],["Overhead press","Side delts",3,"10-12",11],["Reverse lunge","Quads",3,"10-12",11],["Bulgarian split squat","Quads",3,"8-12",11],["Glute bridge","Hamstrings/Glutes",3,"12-15","BW"],["Single-leg glute bridge","Hamstrings/Glutes",3,"10-12","BW"],["Single-leg Romanian deadlift","Hamstrings/Glutes",3,"10-12",11],["Prone T raise","Rear delts",2,"12-15",6]];
+const SEED=[["Push-up (floor)","Chest",3,"8-12","BW"],["Push-up (feet elevated)","Chest",3,"8-12","BW"],["Overhead press","Side delts",3,"10-12",11],["Reverse lunge","Quads",3,"10-12",11],["Bulgarian split squat","Quads",3,"8-12",11],["Glute bridge","Hamstrings/Glutes",3,"12-15","BW"],["Single-leg glute bridge","Hamstrings/Glutes",3,"10-12","BW"],["Single-leg Romanian deadlift","Hamstrings/Glutes",3,"10-12",11],["Prone T raise","Rear delts",2,"12-15",6],["Dead bug","Core",2,"8-12","BW"],["Bicycle crunch","Core",2,"12-15","BW"],["Plank","Core",2,"20-40 sec","BW"],["Weighted crunch","Core",2,"10-12",11]];
 let PGX={};
 const repRange=s=>{const m=String(s||"").match(/^\s*(\d+)\s*(?:-\s*(\d+))?\s*$/);return m?[+m[1],+(m[2]||m[1])]:null};
 function progress(){
@@ -383,7 +383,7 @@ $("csv").onclick=()=>{
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([L.join("\n")],{type:"text/csv"}));a.download="fitness-log.csv";a.click();
 };
 rows=LS("fbt.rows")||[];plan=LS("fbt.plan")||[];
-if(!LS("fbt.seed1")){const have=new Set(names().map(n=>n.toLowerCase()));SEED.forEach(([exercise,muscle,sets,reps,load])=>{if(!have.has(exercise.toLowerCase()))plan.push({new:1,exercise,muscle,sets,reps,load})});SV("fbt.seed1",1);persist()}
+if(!LS("fbt.seed2")){const have=new Set(names().map(n=>n.toLowerCase()));SEED.forEach(([exercise,muscle,sets,reps,load])=>{if(!have.has(exercise.toLowerCase()))plan.push({new:1,exercise,muscle,sets,reps,load})});SV("fbt.seed2",1);persist()}
 render();sync();
 addEventListener("online",()=>sync());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});
