@@ -74,7 +74,7 @@ function sync_(b) {
     if (!id) { id = Utilities.getUuid(); stamp.push([LOG_FIRST + i, id]); }   // row typed by hand in the sheet
     const m = (v[9] && v[9] !== '?') ? v[9] : (mus[v[4]] || '');
     rows.push({
-      id, date: v[0] instanceof Date ? Utilities.formatDate(v[0], tz, 'yyyy-MM-dd') : String(v[0]),
+      id, date: Object.prototype.toString.call(v[0]) === '[object Date]' ? Utilities.formatDate(v[0], tz, 'yyyy-MM-dd') : String(v[0]),
       plan: v[1], day: v[3], exercise: v[4], load: v[5], s1: v[6], s2: v[7], s3: v[8], muscle: m, notes: v[13]
     });
   });
@@ -119,5 +119,5 @@ function addExercise_(app, p) {
 
 // If a reps cell was ever auto-converted to a date (e.g. "10-12" -> Oct 12), turn it back into "10-12"
 function reps_(v, tz) {
-  return v instanceof Date ? Utilities.formatDate(v, tz, 'M-d') : String(v);
+  return Object.prototype.toString.call(v) === '[object Date]' ? Utilities.formatDate(v, tz, 'M-d') : String(v);
 }
