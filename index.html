@@ -64,6 +64,12 @@ th{color:var(--mu);font-weight:600}
 .rc small{color:var(--mu);font-size:12px;margin-top:8px}
 .rtc button{border-radius:999px;padding:10px 20px;min-width:88px}
 .rtc button:disabled{opacity:.45;cursor:default}
+.cal i{height:clamp(42px,10vw,54px)}.cal i small{margin-top:12px}
+button.x{padding:8px 12px;min-height:38px}
+#mprev,#mnext,#exb{min-width:40px;min-height:40px}
+input[type=checkbox]{width:20px;height:20px;padding:0}
+@media (max-width:520px){.elrow{grid-template-columns:1fr 1fr!important}.elrow>div:first-child{grid-column:1/-1}}
+.rtc button.p{color:var(--bg)}
 </style>
 </head>
 <body>
@@ -83,7 +89,7 @@ th{color:var(--mu);font-weight:600}
 <div class="row" style="margin:0 0 10px">
 <label style="margin:0">Routine</label><select id="mode" style="width:auto"><option value="full">Full body</option><option value="ppl">Push / Pull / Legs</option></select>
 <span id="sesw" class="row" style="margin:0" hidden><label style="margin:0">Today</label><select id="ses" style="width:auto"><option value="">Auto</option><option>Push</option><option>Pull</option><option>Legs</option></select></span>
-<label style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="dl" style="width:auto"><span id="dlt">Deload week</span></label>
+<label style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="dl" style="width:20px;height:20px;padding:0"><span id="dlt">Deload week</span></label>
 </div>
 <div id="hint" class="sub" style="margin:0 0 8px"></div>
 <div class="scroll"><table id="circ"></table></div>
@@ -96,7 +102,7 @@ th{color:var(--mu);font-weight:600}
 <div class="rtp"><button data-t="60">1 min</button><button data-t="120">2 min</button><button id="tauto" title="Start the timer automatically after you log an exercise">Auto: off</button></div>
 <div class="ring"><svg viewBox="0 0 200 200" aria-hidden="true"><circle class="trk" cx="100" cy="100" r="88"/><circle id="rg" class="prg" cx="100" cy="100" r="88" transform="rotate(-90 100 100)"/></svg>
 <div class="rc"><span id="tm">0:00</span><small id="tsub">Ready</small></div></div>
-<div class="rtc"><button id="tadd">+1:00</button><button id="tpause" class="p" disabled aria-label="Pause or resume">⏸</button><button id="tstop" disabled>Reset</button></div>
+<div class="rtc"><button id="tadd">+1:00</button><button id="tpause" class="p" disabled aria-label="Pause or resume"></button><button id="tstop" disabled>Reset</button></div>
 </div>
 </section>
 
@@ -107,10 +113,10 @@ th{color:var(--mu);font-weight:600}
 <div><label>Plan</label><select id="plan"><option>Full Body</option><option>Push</option><option>Pull</option><option>Legs</option><option>Deload</option></select></div>
 <div><label>Day #</label><select id="day"><option value="">–</option><option>1</option><option>2</option><option>3</option></select></div>
 </div>
-<div class="grid" style="margin-top:10px;grid-template-columns:2fr 1fr 1fr">
+<div class="grid elrow" style="margin-top:10px;grid-template-columns:2fr 1fr 1fr;align-items:end">
 <div style="position:relative"><label>Exercise</label><div class="cb"><input id="ex" autocomplete="off" placeholder="Pick or type…"><button type="button" id="exb" title="Show all exercises" aria-label="Show all exercises">▾</button></div><div id="exl" class="dd" hidden></div></div>
 <div><label id="mlab">Muscle</label><select id="mus"></select></div>
-<div><label>Load (lb, or BW)</label><input id="load" placeholder="11 or BW"></div>
+<div><label>Load (lb/BW)</label><input id="load" placeholder="11 or BW"></div>
 </div>
 <div class="sets" style="margin-top:10px">
 <div><label>Set 1 reps</label><input id="s1" type="number" min="0" inputmode="numeric"></div>
@@ -456,7 +462,7 @@ $("log").onclick=async e=>{const ed=e.target.closest("button[data-e]");if(ed){st
   const d=rows.splice(+b.dataset.i,1)[0];DEL.push(d.id);if(EDIT===d.id){endEdit();["ex","load","s1","s2","s3","notes"].forEach(i=>$(i).value="")}render();await saveRows()};
 // Rest timer: counts down to a fixed end time (stays correct if the tab sleeps), ring depletes, beeps and vibrates at zero
 let TEND=0,TTOT=0,TREM=0,TIV=null,ACX=null,TPAUSE=false;
-const RC=2*Math.PI*88,fmtT=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+const PAUSEI='<svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true"><rect x="3" y="2" width="4" height="14" rx="1"/><rect x="11" y="2" width="4" height="14" rx="1"/></svg>',PLAYI='<svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true"><path d="M5 2.5v13l11-6.5z"/></svg>',RC=2*Math.PI*88,fmtT=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
 function beep(){
   try{const c=ACX;if(c)[0,.25,.5].forEach(d=>{const o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=.25;o.connect(g);g.connect(c.destination);o.start(c.currentTime+d);o.stop(c.currentTime+d+.15)})}catch(e){}
   try{navigator.vibrate&&navigator.vibrate([200,100,200,100,200])}catch(e){}}
@@ -464,8 +470,8 @@ function paintT(ms,st){   // st: idle | run | pause | done
   const left=Math.ceil(ms/1000),fr=st==="done"?1:st==="idle"?0:Math.min(1,Math.max(0,ms/(TTOT*1000)));
   $("tm").textContent=st==="done"?"Go!":st==="idle"?"0:00":fmtT(left);
   $("tsub").textContent={idle:"Ready",run:"Resting",pause:"Paused",done:"Rest over"}[st];
-  $("rg").style.strokeDashoffset=RC*(1-fr);$("rg").classList.toggle("done",st==="done");
-  $("tpause").textContent=st==="pause"?"▶":"⏸";$("tpause").disabled=st==="idle"||st==="done";$("tstop").disabled=st==="idle";
+  $("rg").style.strokeDashoffset=RC*(1-fr);$("rg").style.opacity=st==="idle"?0:1;$("rg").classList.toggle("done",st==="done");
+  $("tpause").innerHTML=st==="pause"?PLAYI:PAUSEI;$("tpause").disabled=st==="idle"||st==="done";$("tstop").disabled=st==="idle";
   document.title=st==="run"?fmtT(left)+" · Rest":st==="pause"?"Paused · Rest":"Full-Body Tracker";
   if(st!=="run"&&st!=="pause")[...document.querySelectorAll("#rest [data-t]")].forEach(b=>b.classList.remove("p"))}
 function tick(){
