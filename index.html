@@ -37,7 +37,19 @@ th{color:var(--mu);font-weight:600}
 .cb input.invalid+button{border-color:var(--hi)}select:disabled{opacity:.6;cursor:not-allowed}
 .dd{position:absolute;left:0;right:0;top:100%;z-index:20;max-height:260px;overflow-y:auto;background:var(--card);border:1px solid var(--bd);border-radius:8px;margin-top:2px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .dd div{padding:9px 10px;display:flex;justify-content:space-between;gap:8px;cursor:pointer;border-bottom:1px solid var(--bd)}.dd div:last-child{border-bottom:0}
-.dd div span{color:var(--mu);font-size:12px}.dd div.on,.dd div:hover{background:var(--bg)}.dd .none{color:var(--mu);cursor:default;display:block}
+.dd div span{color:var(--mu);font-size:12px}.dd div.on,.dd div:hover{background:var(--bg)}.pgi{padding:8px 0;border-top:1px solid var(--bd)}.tag.up{color:var(--ok)}.tag.stall{color:var(--lo)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.tile{border:1px solid var(--bd);border-radius:10px;padding:10px}.tile b{display:block;font-size:20px}.tile span{font-size:12px;color:var(--mu)}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.cal b{font-size:11px;font-weight:600;color:var(--mu);text-align:center}
+.cal i{position:relative;display:flex;align-items:center;justify-content:center;height:clamp(34px,8vw,52px);border-radius:8px;background:var(--bg);border:1px solid var(--bd);font-style:normal;color:var(--tx);cursor:default}
+.cal i em{position:absolute;top:3px;left:6px;font-style:normal;font-size:10px;color:var(--mu)}.cal i small{font-size:13px;font-weight:600}
+.cal i.l1,.cal i.l2,.cal i.l3,.cal i.l4{border-color:transparent}
+.cal i.l1{background:color-mix(in srgb,var(--ac) 28%,var(--card))}.cal i.l2{background:color-mix(in srgb,var(--ac) 50%,var(--card))}
+.cal i.l3{background:color-mix(in srgb,var(--ac) 75%,var(--card));color:#fff}.cal i.l4{background:var(--ac);color:#fff}
+.cal i.l3 em,.cal i.l4 em{color:rgba(255,255,255,.8)}
+.cal i.now{outline:2px solid var(--tx);outline-offset:1px}
+.bar{display:grid;grid-template-columns:120px 1fr 60px;align-items:center;gap:8px;font-size:13px;margin:5px 0}.bar .tr{background:var(--bg);border-radius:5px}.bar i{display:block;height:10px;border-radius:5px;background:var(--ac)}.bar span:last-child{text-align:right;color:var(--mu)}
+.dd .none{color:var(--mu);cursor:default;display:block}
 #st{font-size:12px;color:var(--mu)}
 .err{color:var(--hi);font-size:12px;margin-top:3px}.sub.bad{color:var(--hi)}.sub.good{color:var(--ok)}input.invalid,select.invalid{border-color:var(--hi)}
 </style>
@@ -58,6 +70,7 @@ th{color:var(--mu);font-weight:600}
 <h2>Recommended for today</h2>
 <div id="hint" class="sub" style="margin:0 0 8px"></div>
 <div class="scroll"><table id="circ"></table></div>
+<div id="pg"></div>
 </section>
 
 <section class="card">
@@ -78,7 +91,7 @@ th{color:var(--mu);font-weight:600}
 <div><label>Set 3 reps</label><input id="s3" type="number" min="0" inputmode="numeric"></div>
 </div>
 <div style="margin-top:10px"><label>Notes</label><input id="notes" placeholder="Optional"></div>
-<div class="row"><button class="p" id="add">Add to log</button><span id="msg" class="sub" style="margin:0"></span></div>
+<div class="row"><button class="p" id="add">Add to log</button><button id="cancel" hidden>Cancel edit</button><span id="msg" class="sub" style="margin:0"></span></div>
 </section>
 
 <section class="card">
@@ -97,18 +110,30 @@ th{color:var(--mu);font-weight:600}
 </section>
 
 <section class="card">
+<h2>Consistency</h2>
+<div id="streaks" class="tiles"></div>
+<div class="row" style="justify-content:space-between;margin:14px 0 8px"><b id="mlabel" style="font-size:14px"></b><span><button id="mprev" title="Previous month">◀</button> <button id="mnext" title="Next month">▶</button></span></div>
+<div id="cal" class="cal"></div>
+<div id="caltip" class="sub" style="margin:6px 0 0;min-height:18px"></div>
+<h2 style="margin:16px 0 2px">Muscle hotspots (this month)</h2>
+<div id="hsub" class="sub" style="margin:0 0 6px"></div>
+<div id="hot"></div>
+</section>
+
+<section class="card">
 <h2>Log</h2>
 <div class="scroll"><table id="log"></table></div>
 <div class="row"><button class="p" id="sync">Sync now</button><button id="cfgbtn">Connection</button><button id="csv">Export CSV</button><span id="smsg" class="sub" style="margin:0"></span></div>
 </section>
 </main>
 <script>
-const MUSCLES=["Chest","Back","Side delts","Rear delts","Biceps","Triceps","Quads","Hamstrings/Glutes","Calves"];
-const TARGET={"Chest":[8,12],"Back":[8,12],"Side delts":[6,12],"Rear delts":[4,8],"Biceps":[6,10],"Triceps":[6,10],"Quads":[4,8],"Hamstrings/Glutes":[3,8]};
+const MUSCLES=["Chest","Back","Side delts","Rear delts","Biceps","Triceps","Quads","Hamstrings/Glutes","Calves","Core"];
+const TARGET={"Chest":[8,12],"Back":[8,12],"Side delts":[6,12],"Rear delts":[4,8],"Biceps":[6,10],"Triceps":[6,10],"Quads":[4,8],"Hamstrings/Glutes":[3,8],"Calves":[4,8],"Core":[4,10]};
 const $=id=>document.getElementById(id);
 let rows=[],plan=[],lref=null,pref=null;
 const iso=d=>{const x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
 const today=iso(new Date());
+const nd=d=>{const s=String(d==null?"":d);if(/^\d{4}-\d\d-\d\d$/.test(s))return s;const x=new Date(d);return isNaN(x)?"":iso(x)}; // any date-like value -> YYYY-MM-DD
 const monday=s=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
 const fmt=s=>new Date(s+"T12:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"});
 const reps=r=>[r.s1,r.s2,r.s3].map(Number).filter(n=>n>0);
@@ -144,6 +169,78 @@ $("ex").addEventListener("keydown",e=>{
 });
 
 const DAY=864e5;
+const LOADS=[6,11,16]; // dumbbell weights you own (lb); add to this list if you buy heavier ones
+// Next harder step for an exercise once it tops its range (used for bodyweight moves and at your heaviest dumbbell)
+const LADDER={"Knee push-up":"Incline push-up (step)","Incline push-up (step)":"Push-up (floor)","Push-up (floor)":"Push-up (feet elevated)","Glute bridge":"Single-leg glute bridge","Goblet squat":"Bulgarian split squat","Reverse lunge":"Bulgarian split squat","Romanian deadlift":"Single-leg Romanian deadlift","Dead bug":"Bicycle crunch","Bicycle crunch":"Weighted crunch"};
+// Starter exercises added to your library once (name, muscle, sets, reps, start load)
+const SEED=[["Push-up (floor)","Chest",3,"8-12","BW"],["Push-up (feet elevated)","Chest",3,"8-12","BW"],["Overhead press","Side delts",3,"10-12",11],["Reverse lunge","Quads",3,"10-12",11],["Bulgarian split squat","Quads",3,"8-12",11],["Glute bridge","Hamstrings/Glutes",3,"12-15","BW"],["Single-leg glute bridge","Hamstrings/Glutes",3,"10-12","BW"],["Single-leg Romanian deadlift","Hamstrings/Glutes",3,"10-12",11],["Prone T raise","Rear delts",2,"12-15",6],["Dead bug","Core",2,"8-12","BW"],["Bicycle crunch","Core",2,"12-15","BW"],["Plank","Core",2,"20-40 sec","BW"],["Weighted crunch","Core",2,"10-12",11]];
+let PGX={};
+const repRange=s=>{const m=String(s||"").match(/^\s*(\d+)\s*(?:-\s*(\d+))?\s*$/);return m?[+m[1],+(m[2]||m[1])]:null};
+function progress(){
+  const out={},P=(Array.isArray(plan)?plan:[]).filter(p=>p&&p.exercise),R=(Array.isArray(rows)?rows:[]).filter(r=>r&&r.exercise&&r.date);
+  const T=d=>new Date(d+"T12:00:00").getTime(),sum=s=>s.a.reduce((x,y)=>x+y,0),now=T(today);
+  for(const p of P){
+    const rg=repRange(p.reps);if(!rg)continue;const [lo,hi]=rg;
+    const ss=R.filter(r=>r.exercise===p.exercise).map(r=>({t:T(r.date),ld:String(r.load||"BW").trim().toUpperCase(),a:reps(r)})).filter(s=>s.a.length&&!isNaN(s.t)).sort((x,y)=>x.t-y.t);
+    if(ss.length<2)continue;
+    const L=ss[ss.length-1];if(now-L.t>21*DAY)continue;
+    const top=s=>s.a.length>=2&&s.a.every(n=>n>=hi),prev=ss[ss.length-2];
+    if(prev.ld===L.ld&&top(prev)&&top(L)){
+      const cur=parseFloat(L.ld),nx=isNaN(cur)?null:LOADS.find(x=>x>cur);
+      const nxE=LADDER[p.exercise],nxP=nxE&&P.find(q=>q.exercise===nxE),step=nxP?` Next step: ${nxE}, starting at the bottom of its range.`:"";
+      out[p.exercise]={kind:"up",next:nxP?nxE:"",nextLoad:nxP?String(nxP.load||"BW"):"",msg:isNaN(cur)
+        ?`Top of the range (${hi}) on every set twice. Slow the lowering (3 s + a pause), then try a harder variation.${step}`
+        :nx?`Top of the range (${hi}) on every set twice at ${L.ld} lb. Slow the lowering (3 s + a pause) first; when that's easy, move to ${nx} lb and restart at ${lo} reps.`
+        :`Top of the range (${hi}) on every set twice at ${L.ld} lb, your heaviest. Slow the lowering (4 s + a pause) or add a set.${step}`};
+      continue}
+    const W=ss.filter(s=>s.ld===L.ld&&L.t-s.t<=21*DAY);
+    if(W.length>=3&&L.t-W[0].t>=14*DAY&&sum(L)<=Math.max(...W.slice(0,-1).map(sum)))
+      out[p.exercise]={kind:"stall",msg:`No rep gain in about 3 weeks at ${L.ld}${isNaN(parseFloat(L.ld))?"":" lb"}. Check sleep and food, take an easier week, or slow the lowering.`};
+  }
+  return out}
+function showProg(){
+  const k=Object.keys(PGX);
+  $("pg").innerHTML=k.length?"<h2 style='margin:14px 0 4px'>Progression</h2>"+k.map(e=>`<div class="pgi"><b>${esc(e)}</b> <span class="tag ${PGX[e].kind}">${PGX[e].kind==="up"?"↑ Ready to progress":"⏸ Stalled"}</span><div class="sub" style="margin:2px 0 0">${esc(PGX[e].msg)}</div>${PGX[e].next?`<div style="margin-top:6px"><button data-use="${esc(PGX[e].next)}" data-load="${esc(PGX[e].nextLoad)}">Log ${esc(PGX[e].next)}</button></div>`:""}</div>`).join(""):""}
+const GOAL=3; // workouts per week that keep a streak alive (edit to match your plan)
+let MON=null; // month shown in the calendar: {y,m}
+const addW=(w,n)=>{const d=new Date(w+"T12:00:00");d.setDate(d.getDate()+7*n);return iso(d)};
+const mpre=(y,m)=>y+"-"+String(m+1).padStart(2,"0")+"-";
+function streakStats(){
+  const R=(Array.isArray(rows)?rows:[]).filter(r=>r&&/^\d{4}-\d\d-\d\d$/.test(r.date||""));
+  const days=new Set(R.map(r=>r.date)),wk={};
+  days.forEach(d=>{const w=monday(d);wk[w]=(wk[w]||0)+1});
+  const cw=monday(today),ok=w=>(wk[w]||0)>=GOAL;
+  let cur=0,w=ok(cw)?cw:addW(cw,-1);while(ok(w)){cur++;w=addW(w,-1)}   // this week still in progress: doesn't break the streak
+  let best=0,run=0;const ks=Object.keys(wk).sort();
+  if(ks.length)for(let x=ks[0];x<=cw;x=addW(x,1)){run=ok(x)?run+1:0;best=Math.max(best,run)}
+  return{cur,best,week:wk[cw]||0,total:days.size,month:[...days].filter(d=>d.startsWith(today.slice(0,7)+"-")).length}}
+function monthData(y,m){
+  const pre=mpre(y,m),sets={},mus={};
+  (Array.isArray(rows)?rows:[]).forEach(r=>{if(!r||!String(r.date||"").startsWith(pre))return;const n=calc(r).n;
+    sets[r.date]=(sets[r.date]||0)+n;if(r.muscle)mus[r.muscle]=(mus[r.muscle]||0)+n});
+  return{sets,mus,workouts:Object.keys(sets).length}}
+//RENDER
+function showStreaks(){
+  const s=streakStats(),tile=(b,t)=>`<div class="tile"><b>${b}</b><span>${t}</span></div>`;
+  $("streaks").innerHTML=tile((s.cur?"🔥 ":"")+s.cur+" wk","Current streak ("+GOAL+"+ workouts/week)")+tile(s.best+" wk","Longest streak")
+    +tile(s.week+" / "+GOAL,"Workouts this week")+tile(s.month,"Workouts this month")}
+function monthView(delta){
+  const t=new Date(today+"T12:00:00");MON=MON||{y:t.getFullYear(),m:t.getMonth()};
+  if(delta>0&&MON.y*12+MON.m>=t.getFullYear()*12+t.getMonth())delta=0;   // no future months
+  if(delta){MON.m+=delta;if(MON.m<0){MON.m=11;MON.y--}if(MON.m>11){MON.m=0;MON.y++}}
+  const D=monthData(MON.y,MON.m),pre=mpre(MON.y,MON.m),dim=new Date(MON.y,MON.m+1,0).getDate(),lead=(new Date(MON.y,MON.m,1,12).getDay()+6)%7;
+  const mx=Math.max(1,...Object.values(D.sets)),tot=Object.values(D.sets).reduce((a,b)=>a+b,0);
+  $("mlabel").textContent=new Date(MON.y,MON.m,1,12).toLocaleDateString(undefined,{month:"long",year:"numeric"})+" · "+D.workouts+" workout"+(D.workouts===1?"":"s")+", "+tot+" sets";
+  $("mnext").disabled=MON.y*12+MON.m>=t.getFullYear()*12+t.getMonth();
+  let c=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(x=>`<b>${x}</b>`).join("")+"<span></span>".repeat(lead);
+  for(let d=1;d<=dim;d++){const k=pre+String(d).padStart(2,"0"),n=D.sets[k]||0,lv=n?Math.min(4,Math.ceil(4*n/mx)):0,
+      tip=new Date(k+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})+": "+(n?n+" set"+(n===1?"":"s"):"rest day");
+    c+=`<i class="${lv?"l"+lv:""}${k===today?" now":""}" title="${tip}" data-t="${tip}"><em>${d}</em>${n?`<small>${n}</small>`:""}</i>`}
+  $("cal").innerHTML=c;$("caltip").textContent="";
+  const E=MUSCLES.map(m=>[m,D.mus[m]||0]).sort((a,b)=>b[1]-a[1]),top=Math.max(1,E[0][1]),all=E.reduce((a,e)=>a+e[1],0);
+  $("hot").innerHTML=all?E.map(([m,n])=>`<div class="bar"><span>${esc(m)}</span><div class="tr"><i style="width:${Math.round(100*n/top)}%;opacity:${(.35+.65*n/top).toFixed(2)}"></i></div><span>${n} sets</span></div>`).join(""):"<div class=\"sub\">No sets logged this month.</div>";
+  const low=E.filter(e=>e[1]===E[E.length-1][1]).map(e=>e[0]);
+  $("hsub").textContent=all?(E[0][1]>0?"Hottest: "+E[0][0]+". ":"")+"Least trained: "+(low.length>3?low.slice(0,3).join(", ")+"…":low.join(", "))+" ("+E[E.length-1][1]+")":""}
 function recommend(){
   const P=(Array.isArray(plan)?plan:[]).filter(p=>p&&p.exercise&&p.muscle),R=(Array.isArray(rows)?rows:[]).filter(r=>r&&r.exercise);
   const wk=monday(today),done={},last={},lastEx={};
@@ -152,7 +249,7 @@ function recommend(){
     lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t)});
   const now=new Date(today+"T12:00:00").getTime();
   const need=MUSCLES.filter(m=>TARGET[m]).map(m=>{const d=done[m]||0,[mn,mx]=TARGET[m];return{m,d,mn,mx,left:Math.max(0,mn-d),recent:!!(last[m]&&now-last[m]<2*DAY)}})
-    .filter(o=>o.left>0).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,4);
+    .filter(o=>o.left>0&&P.some(p=>p.muscle===o.m)).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,4);
   const tot=Object.values(done).reduce((x,y)=>x+y,0);
   $("hint").textContent=`Week of ${fmt(wk)}: ${tot} sets logged. Muscles furthest below their weekly minimum come first.`;
   let c="<tr><th>Exercise</th><th>Muscle</th><th>Sets×Reps</th><th>Load</th><th>Why</th><th></th></tr>",n=0;
@@ -160,15 +257,16 @@ function recommend(){
     let left=Math.min(o.left,6);
     const exs=P.filter(p=>p.muscle===o.m).sort((a,b)=>(lastEx[a.exercise]||0)-(lastEx[b.exercise]||0));
     for(const p of exs){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;
-      const lr=R.filter(r=>r.exercise===p.exercise).pop(),ld=(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW");
-      c+=`<tr><td>${esc(p.exercise)}</td><td>${esc(o.m)}</td><td>${k}×${esc(p.reps||"10-12")}</td><td>${esc(ld)}</td><td>${o.d} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`}
+      const lr=R.filter(r=>r.exercise===p.exercise).sort((a,b)=>String(a.date).localeCompare(String(b.date))).pop(),ld=(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW");
+      c+=`<tr><td>${esc(p.exercise)}</td><td>${esc(o.m)}</td><td>${k}×${esc(p.reps||"10-12")}</td><td>${esc(ld)}</td><td>${o.d} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}${PGX[p.exercise]?` <span class="tag ${PGX[p.exercise].kind}">${PGX[p.exercise].kind==="up"?"↑ progress":"⏸ stalled"}</span>`:""}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`}
   }
   $("circ").innerHTML=n?c:"<tr><td>Every muscle has reached its weekly minimum. Rest, or add sets toward the upper end of the range.</td></tr>";
 }
 
 function render(){
   lockMus();
-  try{recommend()}catch(e){$("hint").textContent="Couldn’t build recommendations: "+e.message}
+  try{showStreaks();monthView(0)}catch(e){console.error(e)}
+  try{PGX=progress()}catch(e){PGX={}}try{showProg()}catch(e){}try{recommend()}catch(e){$("hint").textContent="Couldn’t build recommendations: "+e.message}
   const wks=[...new Set(rows.map(r=>monday(r.date||today)))].sort();
   const cur=$("pw").value||wks[wks.length-1]||monday(today);
   $("pw").innerHTML=(wks.length?wks:[monday(today)]).map(w=>`<option value="${w}" ${w===cur?"selected":""}>${fmt(w)}</option>`).join("");
@@ -180,7 +278,7 @@ function render(){
   $("prog").innerHTML=h;try{chart(wks)}catch(e){console.error(e)}
   let l="<tr><th>Date</th><th>Plan</th><th>Day</th><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps</th><th>Volume</th><th>Notes</th><th></th></tr>";
   rows.map((r,i)=>[r,i]).sort((a,b)=>(b[0].date||"").localeCompare(a[0].date||"")||b[1]-a[1]).forEach(([r,i])=>{const k=calc(r);
-    l+=`<tr><td>${fmt(r.date||today)}${r.synced?" ✓":""}</td><td>${esc(r.plan)}</td><td>${esc(r.day)}</td><td>${esc(r.exercise)}</td><td>${esc(r.load)}</td><td>${k.n}</td><td>${[r.s1,r.s2,r.s3].filter(x=>x!=="").join("/")}</td><td>${k.v}</td><td>${esc(r.notes)}</td><td><button class="x" data-i="${i}" title="Delete">✕</button></td></tr>`});
+    l+=`<tr><td>${fmt(r.date||today)}${r.synced?" ✓":""}</td><td>${esc(r.plan)}</td><td>${esc(r.day)}</td><td>${esc(r.exercise)}</td><td>${esc(r.load)}</td><td>${k.n}</td><td>${[r.s1,r.s2,r.s3].filter(x=>x!=="").join("/")}</td><td>${k.v}</td><td>${esc(r.notes)}</td><td><button class="x" data-e="${esc(r.id)}" title="Edit">✎</button><button class="x" data-i="${i}" title="Delete">✕</button></td></tr>`});
   $("log").innerHTML=rows.length?l:"<tr><td>No entries yet.</td></tr>";
 }
 function chart(wks){
@@ -214,11 +312,13 @@ $("add").onclick=async()=>{
   if($("date").value>today)bad+=fail("date","Date is in the future.");
   if(bad){say("msg","Fix the "+(bad>1?bad+" fields":"field")+" marked below.","bad");return}
   const row={id:uid(),date:$("date").value,plan:$("plan").value,day:$("day").value,exercise:ex,load:ld||"BW",s1:$("s1").value,s2:$("s2").value,s3:$("s3").value,muscle:$("mus").value,notes:$("notes").value.trim()};
-  rows.push(row);
+  const was=EDIT;
+  if(was){const k=rows.findIndex(x=>x.id===was);if(k>=0)rows.splice(k,1);DEL.push(was)}   // edit = delete old id + add new row
+  rows.push(row);endEdit();if(was)$("date").value=today;
   ["ex","load","s1","s2","s3","notes"].forEach(i=>$(i).value="");
   try{render()}catch(e){console.error(e)}
   say("msg","Saving…");
-  const ok=await saveRows();if(ok)say("msg","Added and saved ✓","good");
+  const ok=await saveRows();if(ok)say("msg",was?"Changes saved ✓":"Added and saved ✓","good");
 };
 $("addex").onclick=async()=>{
   clearErr(["nn","nm","nr","nl"]);let bad=0,first="";
@@ -236,25 +336,44 @@ $("addex").onclick=async()=>{
   $("nn").value="";$("nm").value="";try{render()}catch(e){console.error(e)}
   const ok=await savePlan();if(ok)say("msg2","Added to the library ✓","good");
 };
-$("circ").onclick=e=>{
+let EDIT=null; // id of the log entry being edited
+function endEdit(){EDIT=null;$("add").textContent="Add to log";$("cancel").hidden=true}
+const setSel=(id,v)=>{v=String(v??"");if([...$(id).options].some(o=>o.value===v||o.text===v))$(id).value=v};
+function startEdit(id){
+  const r=rows.find(x=>x.id===id);if(!r)return;
+  clearErr(["date","ex","mus","load","s1","s2","s3"]);EDIT=id;
+  $("date").value=r.date||today;setSel("plan",r.plan);setSel("day",r.day);
+  $("ex").value=r.exercise;lockMus();if(!$("mus").disabled)setSel("mus",r.muscle);
+  $("load").value=String(r.load??"");$("s1").value=r.s1??"";$("s2").value=r.s2??"";$("s3").value=r.s3??"";$("notes").value=r.notes||"";
+  $("add").textContent="Save changes";$("cancel").hidden=false;$("exl").hidden=true;
+  say("msg","Editing the entry from "+fmt(r.date||today)+". Change what you need, then Save changes.");
+  const calm=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $("ex").scrollIntoView({behavior:calm?"auto":"smooth",block:"center"});
+}
+$("cancel").onclick=()=>{endEdit();clearErr(["date","ex","mus","load","s1","s2","s3"]);["ex","load","s1","s2","s3","notes"].forEach(i=>$(i).value="");$("date").value=today;render();say("msg","")};
+const useEx=e=>{
   const u=e.target.closest&&e.target.closest("button[data-use]");
-  if(!u||!$("circ").contains(u))return;
+  if(!u||!e.currentTarget.contains(u))return;
   const name=u.dataset.use||"";if(!name)return;
+  if(EDIT){endEdit();["s1","s2","s3","notes"].forEach(i=>$(i).value="")}
   clearErr(["ex","mus","load"]);
   $("ex").value=name;lockMus();$("exl").hidden=true;$("load").value=u.dataset.load||"";
   const calm=matchMedia("(prefers-reduced-motion: reduce)").matches;
   $("ex").scrollIntoView({behavior:calm?"auto":"smooth",block:"center"});
   setTimeout(()=>$("s1").focus({preventScroll:true}),calm?0:350);
 };
-$("log").onclick=async e=>{const b=e.target.closest("button[data-i]");if(!b||!confirm("Delete this entry?"))return;DEL.push(rows.splice(+b.dataset.i,1)[0].id);render();await saveRows()};
+$("circ").onclick=useEx;$("pg").onclick=useEx;
+$("log").onclick=async e=>{const ed=e.target.closest("button[data-e]");if(ed){startEdit(ed.dataset.e);return}
+  const b=e.target.closest("button[data-i]");if(!b||!confirm("Delete this entry?"))return;
+  const d=rows.splice(+b.dataset.i,1)[0];DEL.push(d.id);if(EDIT===d.id){endEdit();["ex","load","s1","s2","s3","notes"].forEach(i=>$(i).value="")}render();await saveRows()};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const LS=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const SV=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-let CFG=LS("fbt.cfg")||{},DEL=LS("fbt.del")||[],busy=false,again=false;
+let CFG=LS("fbt.cfg")||{},DEL=LS("fbt.del")||[],busy=false,again=false,waiters=[];
 const persist=()=>{SV("fbt.rows",rows);SV("fbt.plan",plan);SV("fbt.del",DEL)};
 async function sync(){
   if(!CFG.url){$("cfgcard").hidden=false;$("st").textContent="Not connected: data is saved on this device only.";return false}
-  if(busy){again=true;return false}
+  if(busy){again=true;return new Promise(r=>waiters.push(r))}
   busy=true;$("st").textContent="Syncing…";let ok=false;
   try{
     const out={rows:rows.filter(r=>!r.synced),del:DEL.slice(),plan:plan.filter(p=>p.new)};
@@ -263,14 +382,17 @@ async function sync(){
     const sentR=new Set(out.rows.map(r=>r.id)),sentD=new Set(out.del);
     const lateR=rows.filter(r=>!r.synced&&!sentR.has(r.id)),lateP=plan.filter(p=>p.new&&!out.plan.includes(p));
     DEL=DEL.filter(i=>!sentD.has(i));
-    rows=j.rows.filter(r=>!DEL.includes(r.id)).map(r=>({...r,synced:true})).concat(lateR);
+    rows=j.rows.filter(r=>!DEL.includes(r.id)).map(r=>({...r,date:nd(r.date),synced:true})).concat(lateR);
     plan=j.plan.concat(lateP);persist();
     $("st").textContent="Synced ✓ "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
     $("cfgcard").hidden=true;render();ok=true;
   }catch(e){$("st").textContent="Offline, saved on this device ("+(e.message||e)+")"}
-  busy=false;if(again){again=false;sync()}
+  busy=false;if(again){again=false;ok=await sync()}
+  waiters.splice(0).forEach(f=>f(ok));
   return ok;
 }
+["mouseover","click"].forEach(ev=>$("cal").addEventListener(ev,e=>{const c=e.target.closest&&e.target.closest("i[data-t]");if(c)$("caltip").textContent=c.dataset.t}));
+$("mprev").onclick=()=>monthView(-1);$("mnext").onclick=()=>monthView(1);
 $("sync").onclick=async()=>{$("smsg").textContent="";const ok=await sync();$("smsg").textContent=ok?"Up to date.":"Sync failed."};
 $("cfgbtn").onclick=()=>{$("cfgurl").value=CFG.url||"";$("cfgtok").value=CFG.token||"";$("cfgcard").hidden=!$("cfgcard").hidden};
 $("cfgsave").onclick=()=>{CFG={url:$("cfgurl").value.trim(),token:$("cfgtok").value.trim()};SV("fbt.cfg",CFG);sync()};
@@ -280,7 +402,9 @@ $("csv").onclick=()=>{
   rows.forEach(r=>{const c=calc(r);L.push([r.date,r.plan,monday(r.date||today),r.day,r.exercise,r.load,r.s1,r.s2,r.s3,r.muscle,c.n,c.t,c.v,r.notes].map(q).join(","))});
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([L.join("\n")],{type:"text/csv"}));a.download="fitness-log.csv";a.click();
 };
-rows=LS("fbt.rows")||[];plan=LS("fbt.plan")||[];render();sync();
+rows=LS("fbt.rows")||[];plan=LS("fbt.plan")||[];
+if(!LS("fbt.seed2")){const have=new Set(names().map(n=>n.toLowerCase()));SEED.forEach(([exercise,muscle,sets,reps,load])=>{if(!have.has(exercise.toLowerCase()))plan.push({new:1,exercise,muscle,sets,reps,load})});SV("fbt.seed2",1);persist()}
+render();sync();
 addEventListener("online",()=>sync());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
