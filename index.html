@@ -158,7 +158,7 @@ const items=()=>[...$("exl").querySelectorAll("[data-v]")];
 function showDD(all){
   const q=$("ex").value.trim().toLowerCase(),mu=$("mus").disabled?"":$("mus").value;
   let l=names();if(mu)l=l.filter(n=>muscleOf(n)===mu);if(!all&&q)l=l.filter(n=>n.toLowerCase().includes(q));
-  DDI=-1;$("exl").innerHTML=l.length?l.map(n=>`<div data-v="${esc(n)}">${esc(n)}<span>${esc(muscleOf(n)||"")}</span></div>`).join(""):`<div class="none">${mu?"No "+esc(mu)+" exercise matches. ":"No match. "}Keep typing to add a new one.</div>`;
+  DDI=-1;$("exl").innerHTML=l.length?l.map(n=>`<div data-v="${esc(n)}">${esc(n)}<span>${esc(muscleOf(n)||"")}${REGION[n]?" · "+esc(REGION[n]):""}</span></div>`).join(""):`<div class="none">${mu?"No "+esc(mu)+" exercise matches. ":"No match. "}Keep typing to add a new one.</div>`;
   $("exl").hidden=false}
 function pick(v){$("ex").value=v;$("exl").hidden=true;lockMus();$("load").focus()}
 $("ex").addEventListener("input",()=>{lockMus();showDD(false)});
@@ -187,7 +187,19 @@ const LOADS=[6,11,16]; // dumbbell weights you own (lb); add to this list if you
 // Next harder step for an exercise once it tops its range (used for bodyweight moves and at your heaviest dumbbell)
 const LADDER={"Knee push-up":"Incline push-up (step)","Incline push-up (step)":"Push-up (floor)","Push-up (floor)":"Push-up (feet elevated)","Glute bridge":"Single-leg glute bridge","Goblet squat":"Bulgarian split squat","Reverse lunge":"Bulgarian split squat","Romanian deadlift":"Single-leg Romanian deadlift","Dead bug":"Bicycle crunch","Bicycle crunch":"Weighted crunch","Floor press":"Single-arm floor press","Push-up (feet elevated)":"Archer push-up","Calf raise":"Single-leg calf raise"};
 // Starter exercises added to your library once (name, muscle, sets, reps, start load)
-const SEED=[["Push-up (floor)","Chest",3,"8-12","BW"],["Push-up (feet elevated)","Chest",3,"8-12","BW"],["Overhead press","Side delts",3,"10-12",11],["Reverse lunge","Quads",3,"10-12",11],["Bulgarian split squat","Quads",3,"8-12",11],["Glute bridge","Hamstrings/Glutes",3,"12-15","BW"],["Single-leg glute bridge","Hamstrings/Glutes",3,"10-12","BW"],["Single-leg Romanian deadlift","Hamstrings/Glutes",3,"10-12",11],["Prone T raise","Rear delts",2,"12-15",6],["Dead bug","Core",2,"8-12","BW"],["Bicycle crunch","Core",2,"12-15","BW"],["Plank","Core",2,"20-40 sec","BW"],["Weighted crunch","Core",2,"10-12",11],["Squeeze press (floor)","Chest",3,"12-15",11],["Single-arm floor press","Chest",3,"10-15",11],["Archer push-up","Chest",3,"6-10","BW"],["Arnold press","Side delts",3,"10-12",6],["Pike push-up","Side delts",3,"8-12","BW"],["Front raise","Side delts",2,"12-15",6],["Bench dip (chair)","Triceps",3,"10-15","BW"],["Skull crusher (floor)","Triceps",3,"10-12",11],["Reverse-grip bent-over row","Back",3,"10-12",11],["Renegade row","Back",3,"6-10",11],["Prone Y raise","Rear delts",2,"12-15",6],["Concentration curl","Biceps",3,"10-12",11],["Zottman curl","Biceps",2,"8-12",6],["Step-up","Quads",3,"10-12",11],["Sliding leg curl","Hamstrings/Glutes",3,"8-12","BW"],["Single-leg calf raise","Calves",3,"10-15","BW"],["Side plank","Core",2,"20-40 sec","BW"],["Lying leg raise","Core",3,"10-15","BW"],["Russian twist","Core",3,"12-20",11]];
+const SEED=[["Push-up (floor)","Chest",3,"8-12","BW"],["Push-up (feet elevated)","Chest",3,"8-12","BW"],["Overhead press","Side delts",3,"10-12",11],["Reverse lunge","Quads",3,"10-12",11],["Bulgarian split squat","Quads",3,"8-12",11],["Glute bridge","Hamstrings/Glutes",3,"12-15","BW"],["Single-leg glute bridge","Hamstrings/Glutes",3,"10-12","BW"],["Single-leg Romanian deadlift","Hamstrings/Glutes",3,"10-12",11],["Prone T raise","Rear delts",2,"12-15",6],["Dead bug","Core",2,"8-12","BW"],["Bicycle crunch","Core",2,"12-15","BW"],["Plank","Core",2,"20-40 sec","BW"],["Weighted crunch","Core",2,"10-12",11],["Squeeze press (floor)","Chest",3,"12-15",11],["Single-arm floor press","Chest",3,"10-15",11],["Archer push-up","Chest",3,"6-10","BW"],["Arnold press","Side delts",3,"10-12",6],["Front raise","Side delts",2,"12-15",6],["Bench dip (chair)","Triceps",3,"10-15","BW"],["Skull crusher (floor)","Triceps",3,"10-12",11],["Reverse-grip bent-over row","Back",3,"10-12",11],["Renegade row","Back",3,"6-10",11],["Prone Y raise","Rear delts",2,"12-15",6],["Concentration curl","Biceps",3,"10-12",11],["Zottman curl","Biceps",2,"8-12",6],["Step-up","Quads",3,"10-12",11],["Sliding leg curl","Hamstrings/Glutes",3,"8-12","BW"],["Single-leg calf raise","Calves",3,"10-15","BW"],["Side plank","Core",2,"20-40 sec","BW"],["Lying leg raise","Core",3,"10-15","BW"],["Russian twist","Core",3,"12-20",11],["Incline press (chair)","Chest",3,"10-15",6],["Incline fly (chair)","Chest",2,"12-15",6],["Decline press (hip bridge)","Chest",3,"10-15",11],["Incline curl (chair)","Biceps",2,"10-12",6],["Seated calf raise (chair)","Calves",3,"12-20",16]];
+// Which part of the muscle each exercise works. Edit freely; names must match the library. Shoulders are left out on purpose (side and rear delts are already separate).
+const REGIONS={
+ "Chest":{"Upper":["Push-up (feet elevated)","Incline press (chair)","Incline fly (chair)"],"Middle":["Push-up (floor)","Knee push-up","Floor press","Floor fly","Squeeze press (floor)","Single-arm floor press","Archer push-up"],"Lower":["Incline push-up (step)","Decline press (hip bridge)"]},
+ "Back":{"Lats":["Dumbbell pullover","Single-arm row","Reverse-grip bent-over row"],"Mid-back":["Bent-over row","Renegade row"],"Lower back":["Superman hold"]},
+ "Biceps":{"Long head":["Incline curl (chair)"],"Short head":["Concentration curl"],"Both heads":["Biceps curl"],"Brachialis":["Hammer curl","Zottman curl"]},
+ "Triceps":{"Long head":["Overhead triceps extension","Skull crusher (floor)"],"Lateral/medial":["Triceps kickback","Close-grip push-up","Bench dip (chair)"]},
+ "Quads":{"Squat (vastus)":["Goblet squat"],"Split stance (quads + glutes)":["Reverse lunge","Bulgarian split squat","Step-up"]},
+ "Hamstrings/Glutes":{"Glutes":["Glute bridge","Single-leg glute bridge"],"Hamstrings (hinge)":["Romanian deadlift","Single-leg Romanian deadlift"],"Hamstrings (curl)":["Sliding leg curl"]},
+ "Calves":{"Gastrocnemius":["Calf raise","Single-leg calf raise"],"Soleus":["Seated calf raise (chair)"]},
+ "Core":{"Upper abs":["Weighted crunch"],"Lower abs":["Lying leg raise"],"Obliques":["Russian twist","Side plank","Bicycle crunch"],"Deep core":["Dead bug","Plank"]}
+};
+const REGION={};Object.values(REGIONS).forEach(r=>Object.entries(r).forEach(([g,l])=>l.forEach(e=>REGION[e]=g)));
 let PGX={};
 const repRange=s=>{const m=String(s||"").match(/^\s*(\d+)\s*(?:-\s*(\d+))?\s*$/);return m?[+m[1],+(m[2]||m[1])]:null};
 function progress(){
@@ -267,17 +279,26 @@ function pplDay(forceAuto){
 function recommend(){
   const P=(Array.isArray(plan)?plan:[]).filter(p=>p&&p.exercise&&p.muscle),R=(Array.isArray(rows)?rows:[]).filter(r=>r&&r.exercise);
   // Today's plan is built from everything BEFORE today, so it stays the same all day; exercises logged today are only ticked off.
-  const wk=monday(today),done={},doneB={},last={},lastEx={},todayEx=new Set();
+  const wk=monday(today),done={},doneB={},last={},lastEx={},exDates={},todayEx=new Set();
   R.forEach(r=>{const d=r.date||today,t=new Date(d+"T12:00:00").getTime()||0,isT=d===today;
     if(isT)todayEx.add(r.exercise);
     if(r.muscle){const n=calc(r).n;if(monday(d)===wk){done[r.muscle]=(done[r.muscle]||0)+n;if(!isT)doneB[r.muscle]=(doneB[r.muscle]||0)+n}if(!isT)last[r.muscle]=Math.max(last[r.muscle]||0,t)}
-    if(!isT)lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t)});
+    if(!isT){lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t);(exDates[r.exercise]=exDates[r.exercise]||new Set()).add(d)}});
   const now=new Date(today+"T12:00:00").getTime(),dl=deloadOn(),ppl=MODE==="ppl";
   const tot=Object.values(done).reduce((x,y)=>x+y,0);
   const ldOf=p=>{const lr=R.filter(r=>r.exercise===p.exercise).sort((a,b)=>String(a.date).localeCompare(String(b.date))).pop();return(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW")};
   const byOld=m=>P.filter(p=>p.muscle===m).sort((a,b)=>(lastEx[a.exercise]||0)-(lastEx[b.exercise]||0));
+  // Picks exercises from different regions of a muscle, rotating so the region trained longest ago comes first
+  const pickEx=(m,k)=>{
+    const exs=byOld(m),rl={},rd={},ord=Object.keys(REGIONS[m]||{});
+    exs.forEach(p=>{const g=REGION[p.exercise];if(!g)return;rl[g]=Math.max(rl[g]||0,lastEx[p.exercise]||0);rd[g]=rd[g]||new Set();(exDates[p.exercise]||[]).forEach(d=>rd[g].add(d))});
+    // oldest region first; ties go to the region trained on fewer days, then to the order in REGIONS
+    const regs=Object.keys(rl).sort((a,b)=>(rl[a]-rl[b])||(rd[a].size-rd[b].size)||(ord.indexOf(a)-ord.indexOf(b)));
+    const out=regs.map(g=>exs.find(p=>REGION[p.exercise]===g)).slice(0,k);   // exs is oldest-first, so this is the least-recently-done exercise of each region
+    for(const p of exs){if(out.length>=k)break;if(!out.includes(p))out.push(p)}   // fill up (exercises with no region, or fewer regions than k)
+    return out};
   const badge=p=>PGX[p.exercise]?` <span class="tag ${PGX[p.exercise].kind}">${PGX[p.exercise].kind==="up"?"↑ progress":"⏸ stalled"}</span>`:"";
-  const tr=(p,m,k,rp,why)=>{const ld=ldOf(p),dn=todayEx.has(p.exercise);return `<tr${dn?' style="opacity:.55"':""}><td>${dn?"✓ ":""}${esc(p.exercise)}</td><td>${esc(m)}</td><td>${k}×${esc(rp)}</td><td>${esc(ld)}</td><td>${dn?"Logged today · ":""}${why}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`};
+  const tr=(p,m,k,rp,why)=>{const ld=ldOf(p),dn=todayEx.has(p.exercise);return `<tr${dn?' style="opacity:.55"':""}><td>${dn?"✓ ":""}${esc(p.exercise)}</td><td>${esc(m)}${REGION[p.exercise]?` · ${esc(REGION[p.exercise])}`:""}</td><td>${k}×${esc(rp)}</td><td>${esc(ld)}</td><td>${dn?"Logged today · ":""}${why}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`};
   let c="<tr><th>Exercise</th><th>Muscle</th><th>Sets×Reps</th><th>Load</th><th>Why</th><th></th></tr>",n=0,hint="",empty="";
   if(dl){
     const g=ppl?pplDay().g:"";
@@ -292,13 +313,13 @@ function recommend(){
     for(const m of GROUPS[pd.g]){
       const [mn,mx]=tg(m),d=doneB[m]||0;
       let left=Math.min(9,Math.ceil((mn+mx)/2/PPL_PER_WEEK),mx-d);   // sets for today, never past the weekly max
-      for(const p of byOld(m)){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;c+=tr(p,m,k,p.reps||"10-12",`${done[m]||0} of ${mn}–${mx} sets this week${badge(p)}`)}}
+      for(const p of pickEx(m,9)){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;c+=tr(p,m,k,p.reps||"10-12",`${done[m]||0} of ${mn}–${mx} sets this week${badge(p)}`)}}
     empty=`${pd.g} day is done: every muscle has its sets for today. Rest, or pick another day above.`;
   }else{
     hint=`Week of ${fmt(wk)}: ${tot} sets logged. Today: ${EX_PER_MUSCLE} exercises for each of the ${FB_MUSCLES} muscles furthest below their weekly minimum. Logged exercises stay on the list with a ✓.`;
     const need=MUSCLES.filter(m=>tg(m)).map(m=>{const d=doneB[m]||0,[mn,mx]=tg(m);return{m,d,mn,mx,left:Math.max(0,mn-d),recent:!!(last[m]&&now-last[m]<2*DAY)}})
       .filter(o=>o.left>0&&P.some(p=>p.muscle===o.m)).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,FB_MUSCLES);
-    for(const o of need)for(const p of byOld(o.m).slice(0,EX_PER_MUSCLE)){n++;c+=tr(p,o.m,Math.min(3,Number(p.sets)||3),p.reps||"10-12",`${done[o.m]||0} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}${badge(p)}`)}
+    for(const o of need)for(const p of pickEx(o.m,EX_PER_MUSCLE)){n++;c+=tr(p,o.m,Math.min(3,Number(p.sets)||3),p.reps||"10-12",`${done[o.m]||0} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}${badge(p)}`)}
     empty="Every muscle has reached its weekly minimum. Rest, or add sets toward the upper end of the range.";
   }
   const st=Object.values(PGX).filter(x=>x.kind==="stall").length;
@@ -457,7 +478,7 @@ $("csv").onclick=()=>{
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([L.join("\n")],{type:"text/csv"}));a.download="fitness-log.csv";a.click();
 };
 rows=LS("fbt.rows")||[];plan=LS("fbt.plan")||[];
-if(!LS("fbt.seed3")){const have=new Set(names().map(n=>n.toLowerCase()));SEED.forEach(([exercise,muscle,sets,reps,load])=>{if(!have.has(exercise.toLowerCase()))plan.push({new:1,exercise,muscle,sets,reps,load})});SV("fbt.seed3",1);persist()}
+if(!LS("fbt.seed4")){const have=new Set(names().map(n=>n.toLowerCase()));SEED.forEach(([exercise,muscle,sets,reps,load])=>{if(!have.has(exercise.toLowerCase()))plan.push({new:1,exercise,muscle,sets,reps,load})});SV("fbt.seed4",1);persist()}
 planSel();render();sync();
 addEventListener("online",()=>sync());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});
