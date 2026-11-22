@@ -177,6 +177,8 @@ const DAY=864e5;
 const GROUPS={Push:["Chest","Side delts","Triceps"],Pull:["Back","Rear delts","Biceps"],Legs:["Quads","Hamstrings/Glutes","Calves","Core"]}; // Push/Pull/Legs mode: which muscles belong to each day
 // Weekly set targets in Push/Pull/Legs mode (each muscle is trained more than once a week, so the volume is higher)
 const TARGET_PPL={"Chest":[12,20],"Back":[12,20],"Side delts":[10,18],"Rear delts":[6,12],"Biceps":[8,14],"Triceps":[8,14],"Quads":[8,16],"Hamstrings/Glutes":[8,14],"Calves":[6,12],"Core":[6,12]};
+const FB_MUSCLES=4;     // full-body mode: how many muscles to train per day (the ones furthest below their weekly minimum)
+const EX_PER_MUSCLE=2;  // full-body mode: exercises per muscle per day
 const PPL_PER_WEEK=2; // times per week you run each group: 2 = six days (Push, Pull, Legs, Push, Pull, Legs); 1 = three days
 // Deload week: one familiar exercise per muscle, 2 easy sets
 const DELOAD_FB=["Chest","Back","Side delts","Quads","Hamstrings/Glutes","Core"];
@@ -264,38 +266,39 @@ function pplDay(forceAuto){
   return{g,auto:true,last:lastG[g]}}
 function recommend(){
   const P=(Array.isArray(plan)?plan:[]).filter(p=>p&&p.exercise&&p.muscle),R=(Array.isArray(rows)?rows:[]).filter(r=>r&&r.exercise);
-  const wk=monday(today),done={},doneT={},last={},lastEx={};
-  R.forEach(r=>{const d=r.date||today,t=new Date(d+"T12:00:00").getTime()||0;
-    if(r.muscle){const n=calc(r).n;if(monday(d)===wk)done[r.muscle]=(done[r.muscle]||0)+n;if(d===today)doneT[r.muscle]=(doneT[r.muscle]||0)+n;last[r.muscle]=Math.max(last[r.muscle]||0,t)}
-    lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t)});
+  // Today's plan is built from everything BEFORE today, so it stays the same all day; exercises logged today are only ticked off.
+  const wk=monday(today),done={},doneB={},last={},lastEx={},todayEx=new Set();
+  R.forEach(r=>{const d=r.date||today,t=new Date(d+"T12:00:00").getTime()||0,isT=d===today;
+    if(isT)todayEx.add(r.exercise);
+    if(r.muscle){const n=calc(r).n;if(monday(d)===wk){done[r.muscle]=(done[r.muscle]||0)+n;if(!isT)doneB[r.muscle]=(doneB[r.muscle]||0)+n}if(!isT)last[r.muscle]=Math.max(last[r.muscle]||0,t)}
+    if(!isT)lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t)});
   const now=new Date(today+"T12:00:00").getTime(),dl=deloadOn(),ppl=MODE==="ppl";
   const tot=Object.values(done).reduce((x,y)=>x+y,0);
   const ldOf=p=>{const lr=R.filter(r=>r.exercise===p.exercise).sort((a,b)=>String(a.date).localeCompare(String(b.date))).pop();return(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW")};
   const byOld=m=>P.filter(p=>p.muscle===m).sort((a,b)=>(lastEx[a.exercise]||0)-(lastEx[b.exercise]||0));
   const badge=p=>PGX[p.exercise]?` <span class="tag ${PGX[p.exercise].kind}">${PGX[p.exercise].kind==="up"?"↑ progress":"⏸ stalled"}</span>`:"";
-  const tr=(p,m,k,rp,why)=>{const ld=ldOf(p);return `<tr><td>${esc(p.exercise)}</td><td>${esc(m)}</td><td>${k}×${esc(rp)}</td><td>${esc(ld)}</td><td>${why}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`};
+  const tr=(p,m,k,rp,why)=>{const ld=ldOf(p),dn=todayEx.has(p.exercise);return `<tr${dn?' style="opacity:.55"':""}><td>${dn?"✓ ":""}${esc(p.exercise)}</td><td>${esc(m)}</td><td>${k}×${esc(rp)}</td><td>${esc(ld)}</td><td>${dn?"Logged today · ":""}${why}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`};
   let c="<tr><th>Exercise</th><th>Muscle</th><th>Sets×Reps</th><th>Load</th><th>Why</th><th></th></tr>",n=0,hint="",empty="";
   if(dl){
     const g=ppl?pplDay().g:"";
     hint=`Deload week (through ${fmt(deloadEnd())})${ppl?", "+g+" day":""}: one easy move per muscle, 2 sets, stop 3–4 reps before failure, no weight increases.`;
     for(const m of(ppl?DELOAD_G[g]:DELOAD_FB)){
-      const p=byOld(m).pop();if(!p)continue;   // most recently done = most familiar
+      const p=byOld(m).pop();if(!p)continue;   // most recently done before today = most familiar
       const rg=repRange(p.reps);n++;c+=tr(p,m,2,rg?String(rg[0]):(p.reps||""),"Easy: leave 3–4 reps in reserve")}
     empty="No matching exercises in the library for this deload yet.";
   }else if(ppl){
     const pd=pplDay();
-    hint=`${pd.g} day${pd.auto?" (suggested; "+(pd.last?"last trained "+fmt(iso(new Date(pd.last))):"not trained yet")+")":""}. Week of ${fmt(wk)}: ${tot} sets logged.`;
+    hint=`${pd.g} day${pd.auto?" (suggested; "+(pd.last?"last trained "+fmt(iso(new Date(pd.last))):"not trained yet")+")":""}. Week of ${fmt(wk)}: ${tot} sets logged. Logged exercises stay on the list with a ✓.`;
     for(const m of GROUPS[pd.g]){
-      const [mn,mx]=tg(m),d=done[m]||0;
-      let left=Math.min(9,Math.ceil((mn+mx)/2/PPL_PER_WEEK)-(doneT[m]||0),mx-d);   // sets still to do today, never past the weekly max
-      for(const p of byOld(m)){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;c+=tr(p,m,k,p.reps||"10-12",`${d} of ${mn}–${mx} sets this week${badge(p)}`)}}
+      const [mn,mx]=tg(m),d=doneB[m]||0;
+      let left=Math.min(9,Math.ceil((mn+mx)/2/PPL_PER_WEEK),mx-d);   // sets for today, never past the weekly max
+      for(const p of byOld(m)){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;c+=tr(p,m,k,p.reps||"10-12",`${done[m]||0} of ${mn}–${mx} sets this week${badge(p)}`)}}
     empty=`${pd.g} day is done: every muscle has its sets for today. Rest, or pick another day above.`;
   }else{
-    hint=`Week of ${fmt(wk)}: ${tot} sets logged. Muscles furthest below their weekly minimum come first.`;
-    const need=MUSCLES.filter(m=>tg(m)).map(m=>{const d=done[m]||0,[mn,mx]=tg(m);return{m,d,mn,mx,left:Math.max(0,mn-d),recent:!!(last[m]&&now-last[m]<2*DAY)}})
-      .filter(o=>o.left>0&&P.some(p=>p.muscle===o.m)).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,4);
-    for(const o of need){let left=Math.min(o.left,6);
-      for(const p of byOld(o.m)){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;c+=tr(p,o.m,k,p.reps||"10-12",`${o.d} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}${badge(p)}`)}}
+    hint=`Week of ${fmt(wk)}: ${tot} sets logged. Today: ${EX_PER_MUSCLE} exercises for each of the ${FB_MUSCLES} muscles furthest below their weekly minimum. Logged exercises stay on the list with a ✓.`;
+    const need=MUSCLES.filter(m=>tg(m)).map(m=>{const d=doneB[m]||0,[mn,mx]=tg(m);return{m,d,mn,mx,left:Math.max(0,mn-d),recent:!!(last[m]&&now-last[m]<2*DAY)}})
+      .filter(o=>o.left>0&&P.some(p=>p.muscle===o.m)).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,FB_MUSCLES);
+    for(const o of need)for(const p of byOld(o.m).slice(0,EX_PER_MUSCLE)){n++;c+=tr(p,o.m,Math.min(3,Number(p.sets)||3),p.reps||"10-12",`${done[o.m]||0} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}${badge(p)}`)}
     empty="Every muscle has reached its weekly minimum. Rest, or add sets toward the upper end of the range.";
   }
   const st=Object.values(PGX).filter(x=>x.kind==="stall").length;
