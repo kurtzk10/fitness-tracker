@@ -68,6 +68,11 @@ th{color:var(--mu);font-weight:600}
 
 <section class="card">
 <h2>Recommended for today</h2>
+<div class="row" style="margin:0 0 10px">
+<label style="margin:0">Routine</label><select id="mode" style="width:auto"><option value="full">Full body</option><option value="ppl">Push / Pull / Legs</option></select>
+<span id="sesw" class="row" style="margin:0" hidden><label style="margin:0">Today</label><select id="ses" style="width:auto"><option value="">Auto</option><option>Push</option><option>Pull</option><option>Legs</option></select></span>
+<label style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="dl" style="width:auto"><span id="dlt">Deload week</span></label>
+</div>
 <div id="hint" class="sub" style="margin:0 0 8px"></div>
 <div class="scroll"><table id="circ"></table></div>
 <div id="pg"></div>
@@ -77,7 +82,7 @@ th{color:var(--mu);font-weight:600}
 <h2>Log an exercise</h2>
 <div class="grid">
 <div><label>Date</label><input id="date" type="date"></div>
-<div><label>Plan</label><select id="plan"><option>Full Body</option><option>Split</option></select></div>
+<div><label>Plan</label><select id="plan"><option>Full Body</option><option>Push</option><option>Pull</option><option>Legs</option><option>Deload</option></select></div>
 <div><label>Day #</label><select id="day"><option value="">–</option><option>1</option><option>2</option><option>3</option></select></div>
 </div>
 <div class="grid" style="margin-top:10px;grid-template-columns:2fr 1fr 1fr">
@@ -169,15 +174,22 @@ $("ex").addEventListener("keydown",e=>{
 });
 
 const DAY=864e5;
+const GROUPS={Push:["Chest","Side delts","Triceps"],Pull:["Back","Rear delts","Biceps"],Legs:["Quads","Hamstrings/Glutes","Calves","Core"]}; // Push/Pull/Legs mode: which muscles belong to each day
+// Weekly set targets in Push/Pull/Legs mode (each muscle is trained more than once a week, so the volume is higher)
+const TARGET_PPL={"Chest":[12,20],"Back":[12,20],"Side delts":[10,18],"Rear delts":[6,12],"Biceps":[8,14],"Triceps":[8,14],"Quads":[8,16],"Hamstrings/Glutes":[8,14],"Calves":[6,12],"Core":[6,12]};
+const PPL_PER_WEEK=2; // times per week you run each group: 2 = six days (Push, Pull, Legs, Push, Pull, Legs); 1 = three days
+// Deload week: one familiar exercise per muscle, 2 easy sets
+const DELOAD_FB=["Chest","Back","Side delts","Quads","Hamstrings/Glutes","Core"];
+const DELOAD_G={Push:["Chest","Side delts","Triceps"],Pull:["Back","Rear delts","Biceps"],Legs:["Quads","Hamstrings/Glutes","Core"]};
 const LOADS=[6,11,16]; // dumbbell weights you own (lb); add to this list if you buy heavier ones
 // Next harder step for an exercise once it tops its range (used for bodyweight moves and at your heaviest dumbbell)
-const LADDER={"Knee push-up":"Incline push-up (step)","Incline push-up (step)":"Push-up (floor)","Push-up (floor)":"Push-up (feet elevated)","Glute bridge":"Single-leg glute bridge","Goblet squat":"Bulgarian split squat","Reverse lunge":"Bulgarian split squat","Romanian deadlift":"Single-leg Romanian deadlift","Dead bug":"Bicycle crunch","Bicycle crunch":"Weighted crunch"};
+const LADDER={"Knee push-up":"Incline push-up (step)","Incline push-up (step)":"Push-up (floor)","Push-up (floor)":"Push-up (feet elevated)","Glute bridge":"Single-leg glute bridge","Goblet squat":"Bulgarian split squat","Reverse lunge":"Bulgarian split squat","Romanian deadlift":"Single-leg Romanian deadlift","Dead bug":"Bicycle crunch","Bicycle crunch":"Weighted crunch","Floor press":"Single-arm floor press","Push-up (feet elevated)":"Archer push-up","Calf raise":"Single-leg calf raise"};
 // Starter exercises added to your library once (name, muscle, sets, reps, start load)
-const SEED=[["Push-up (floor)","Chest",3,"8-12","BW"],["Push-up (feet elevated)","Chest",3,"8-12","BW"],["Overhead press","Side delts",3,"10-12",11],["Reverse lunge","Quads",3,"10-12",11],["Bulgarian split squat","Quads",3,"8-12",11],["Glute bridge","Hamstrings/Glutes",3,"12-15","BW"],["Single-leg glute bridge","Hamstrings/Glutes",3,"10-12","BW"],["Single-leg Romanian deadlift","Hamstrings/Glutes",3,"10-12",11],["Prone T raise","Rear delts",2,"12-15",6],["Dead bug","Core",2,"8-12","BW"],["Bicycle crunch","Core",2,"12-15","BW"],["Plank","Core",2,"20-40 sec","BW"],["Weighted crunch","Core",2,"10-12",11]];
+const SEED=[["Push-up (floor)","Chest",3,"8-12","BW"],["Push-up (feet elevated)","Chest",3,"8-12","BW"],["Overhead press","Side delts",3,"10-12",11],["Reverse lunge","Quads",3,"10-12",11],["Bulgarian split squat","Quads",3,"8-12",11],["Glute bridge","Hamstrings/Glutes",3,"12-15","BW"],["Single-leg glute bridge","Hamstrings/Glutes",3,"10-12","BW"],["Single-leg Romanian deadlift","Hamstrings/Glutes",3,"10-12",11],["Prone T raise","Rear delts",2,"12-15",6],["Dead bug","Core",2,"8-12","BW"],["Bicycle crunch","Core",2,"12-15","BW"],["Plank","Core",2,"20-40 sec","BW"],["Weighted crunch","Core",2,"10-12",11],["Squeeze press (floor)","Chest",3,"12-15",11],["Single-arm floor press","Chest",3,"10-15",11],["Archer push-up","Chest",3,"6-10","BW"],["Arnold press","Side delts",3,"10-12",6],["Pike push-up","Side delts",3,"8-12","BW"],["Front raise","Side delts",2,"12-15",6],["Bench dip (chair)","Triceps",3,"10-15","BW"],["Skull crusher (floor)","Triceps",3,"10-12",11],["Reverse-grip bent-over row","Back",3,"10-12",11],["Renegade row","Back",3,"6-10",11],["Prone Y raise","Rear delts",2,"12-15",6],["Concentration curl","Biceps",3,"10-12",11],["Zottman curl","Biceps",2,"8-12",6],["Step-up","Quads",3,"10-12",11],["Sliding leg curl","Hamstrings/Glutes",3,"8-12","BW"],["Single-leg calf raise","Calves",3,"10-15","BW"],["Side plank","Core",2,"20-40 sec","BW"],["Lying leg raise","Core",3,"10-15","BW"],["Russian twist","Core",3,"12-20",11]];
 let PGX={};
 const repRange=s=>{const m=String(s||"").match(/^\s*(\d+)\s*(?:-\s*(\d+))?\s*$/);return m?[+m[1],+(m[2]||m[1])]:null};
 function progress(){
-  const out={},P=(Array.isArray(plan)?plan:[]).filter(p=>p&&p.exercise),R=(Array.isArray(rows)?rows:[]).filter(r=>r&&r.exercise&&r.date);
+  const out={},P=(Array.isArray(plan)?plan:[]).filter(p=>p&&p.exercise),R=(Array.isArray(rows)?rows:[]).filter(r=>r&&r.exercise&&r.date&&r.plan!=="Deload");
   const T=d=>new Date(d+"T12:00:00").getTime(),sum=s=>s.a.reduce((x,y)=>x+y,0),now=T(today);
   for(const p of P){
     const rg=repRange(p.reps);if(!rg)continue;const [lo,hi]=rg;
@@ -241,39 +253,67 @@ function monthView(delta){
   $("hot").innerHTML=all?E.map(([m,n])=>`<div class="bar"><span>${esc(m)}</span><div class="tr"><i style="width:${Math.round(100*n/top)}%;opacity:${(.35+.65*n/top).toFixed(2)}"></i></div><span>${n} sets</span></div>`).join(""):"<div class=\"sub\">No sets logged this month.</div>";
   const low=E.filter(e=>e[1]===E[E.length-1][1]).map(e=>e[0]);
   $("hsub").textContent=all?(E[0][1]>0?"Hottest: "+E[0][0]+". ":"")+"Least trained: "+(low.length>3?low.slice(0,3).join(", ")+"…":low.join(", "))+" ("+E[E.length-1][1]+")":""}
+function pplDay(forceAuto){
+  const s=forceAuto?null:LS("fbt.ses");if(s&&s.d===today&&GROUPS[s.v])return{g:s.v,auto:false};
+  const gs=Object.keys(GROUPS),lastG={},todayN={};gs.forEach(g=>{lastG[g]=0;todayN[g]=0});
+  rows.forEach(r=>{if(!r||!r.muscle)return;const d=r.date||today,t=new Date(d+"T12:00:00").getTime()||0;
+    gs.forEach(g=>{if(GROUPS[g].includes(r.muscle)){lastG[g]=Math.max(lastG[g],t);if(d===today)todayN[g]+=calc(r).n}})});
+  const mid=gs.filter(g=>todayN[g]>0).sort((a,b)=>todayN[b]-todayN[a])[0];   // mid-session: stay on the group you started today
+  if(mid)return{g:mid,auto:true,last:lastG[mid]};
+  const g=gs.slice().sort((a,b)=>lastG[a]-lastG[b])[0];                       // otherwise the group trained longest ago (ties: Push, Pull, Legs)
+  return{g,auto:true,last:lastG[g]}}
 function recommend(){
   const P=(Array.isArray(plan)?plan:[]).filter(p=>p&&p.exercise&&p.muscle),R=(Array.isArray(rows)?rows:[]).filter(r=>r&&r.exercise);
-  const wk=monday(today),done={},last={},lastEx={};
+  const wk=monday(today),done={},doneT={},last={},lastEx={};
   R.forEach(r=>{const d=r.date||today,t=new Date(d+"T12:00:00").getTime()||0;
-    if(r.muscle){if(monday(d)===wk)done[r.muscle]=(done[r.muscle]||0)+calc(r).n;last[r.muscle]=Math.max(last[r.muscle]||0,t)}
+    if(r.muscle){const n=calc(r).n;if(monday(d)===wk)done[r.muscle]=(done[r.muscle]||0)+n;if(d===today)doneT[r.muscle]=(doneT[r.muscle]||0)+n;last[r.muscle]=Math.max(last[r.muscle]||0,t)}
     lastEx[r.exercise]=Math.max(lastEx[r.exercise]||0,t)});
-  const now=new Date(today+"T12:00:00").getTime();
-  const need=MUSCLES.filter(m=>TARGET[m]).map(m=>{const d=done[m]||0,[mn,mx]=TARGET[m];return{m,d,mn,mx,left:Math.max(0,mn-d),recent:!!(last[m]&&now-last[m]<2*DAY)}})
-    .filter(o=>o.left>0&&P.some(p=>p.muscle===o.m)).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,4);
+  const now=new Date(today+"T12:00:00").getTime(),dl=deloadOn(),ppl=MODE==="ppl";
   const tot=Object.values(done).reduce((x,y)=>x+y,0);
-  $("hint").textContent=`Week of ${fmt(wk)}: ${tot} sets logged. Muscles furthest below their weekly minimum come first.`;
-  let c="<tr><th>Exercise</th><th>Muscle</th><th>Sets×Reps</th><th>Load</th><th>Why</th><th></th></tr>",n=0;
-  for(const o of need){
-    let left=Math.min(o.left,6);
-    const exs=P.filter(p=>p.muscle===o.m).sort((a,b)=>(lastEx[a.exercise]||0)-(lastEx[b.exercise]||0));
-    for(const p of exs){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;
-      const lr=R.filter(r=>r.exercise===p.exercise).sort((a,b)=>String(a.date).localeCompare(String(b.date))).pop(),ld=(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW");
-      c+=`<tr><td>${esc(p.exercise)}</td><td>${esc(o.m)}</td><td>${k}×${esc(p.reps||"10-12")}</td><td>${esc(ld)}</td><td>${o.d} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}${PGX[p.exercise]?` <span class="tag ${PGX[p.exercise].kind}">${PGX[p.exercise].kind==="up"?"↑ progress":"⏸ stalled"}</span>`:""}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`}
+  const ldOf=p=>{const lr=R.filter(r=>r.exercise===p.exercise).sort((a,b)=>String(a.date).localeCompare(String(b.date))).pop();return(lr&&lr.load!==""&&lr.load!=null)?lr.load:(p.load||"BW")};
+  const byOld=m=>P.filter(p=>p.muscle===m).sort((a,b)=>(lastEx[a.exercise]||0)-(lastEx[b.exercise]||0));
+  const badge=p=>PGX[p.exercise]?` <span class="tag ${PGX[p.exercise].kind}">${PGX[p.exercise].kind==="up"?"↑ progress":"⏸ stalled"}</span>`:"";
+  const tr=(p,m,k,rp,why)=>{const ld=ldOf(p);return `<tr><td>${esc(p.exercise)}</td><td>${esc(m)}</td><td>${k}×${esc(rp)}</td><td>${esc(ld)}</td><td>${why}</td><td><button data-use="${esc(p.exercise)}" data-load="${esc(ld)}">Log</button></td></tr>`};
+  let c="<tr><th>Exercise</th><th>Muscle</th><th>Sets×Reps</th><th>Load</th><th>Why</th><th></th></tr>",n=0,hint="",empty="";
+  if(dl){
+    const g=ppl?pplDay().g:"";
+    hint=`Deload week (through ${fmt(deloadEnd())})${ppl?", "+g+" day":""}: one easy move per muscle, 2 sets, stop 3–4 reps before failure, no weight increases.`;
+    for(const m of(ppl?DELOAD_G[g]:DELOAD_FB)){
+      const p=byOld(m).pop();if(!p)continue;   // most recently done = most familiar
+      const rg=repRange(p.reps);n++;c+=tr(p,m,2,rg?String(rg[0]):(p.reps||""),"Easy: leave 3–4 reps in reserve")}
+    empty="No matching exercises in the library for this deload yet.";
+  }else if(ppl){
+    const pd=pplDay();
+    hint=`${pd.g} day${pd.auto?" (suggested; "+(pd.last?"last trained "+fmt(iso(new Date(pd.last))):"not trained yet")+")":""}. Week of ${fmt(wk)}: ${tot} sets logged.`;
+    for(const m of GROUPS[pd.g]){
+      const [mn,mx]=tg(m),d=done[m]||0;
+      let left=Math.min(9,Math.ceil((mn+mx)/2/PPL_PER_WEEK)-(doneT[m]||0),mx-d);   // sets still to do today, never past the weekly max
+      for(const p of byOld(m)){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;c+=tr(p,m,k,p.reps||"10-12",`${d} of ${mn}–${mx} sets this week${badge(p)}`)}}
+    empty=`${pd.g} day is done: every muscle has its sets for today. Rest, or pick another day above.`;
+  }else{
+    hint=`Week of ${fmt(wk)}: ${tot} sets logged. Muscles furthest below their weekly minimum come first.`;
+    const need=MUSCLES.filter(m=>tg(m)).map(m=>{const d=done[m]||0,[mn,mx]=tg(m);return{m,d,mn,mx,left:Math.max(0,mn-d),recent:!!(last[m]&&now-last[m]<2*DAY)}})
+      .filter(o=>o.left>0&&P.some(p=>p.muscle===o.m)).sort((a,b)=>(a.recent-b.recent)||(b.left/b.mn-a.left/a.mn)||(b.left-a.left)).slice(0,4);
+    for(const o of need){let left=Math.min(o.left,6);
+      for(const p of byOld(o.m)){if(left<=0)break;const k=Math.min(3,left);left-=k;n++;c+=tr(p,o.m,k,p.reps||"10-12",`${o.d} of ${o.mn}–${o.mx} sets${o.recent?" (trained recently)":""}${badge(p)}`)}}
+    empty="Every muscle has reached its weekly minimum. Rest, or add sets toward the upper end of the range.";
   }
-  $("circ").innerHTML=n?c:"<tr><td>Every muscle has reached its weekly minimum. Rest, or add sets toward the upper end of the range.</td></tr>";
+  const st=Object.values(PGX).filter(x=>x.kind==="stall").length;
+  $("hint").textContent=hint+(!dl&&st>=2?" Several exercises have stalled: a deload week may help.":"");
+  $("circ").innerHTML=n?c:`<tr><td>${esc(empty)}</td></tr>`;
 }
 
 function render(){
-  lockMus();
+  lockMus();try{syncCtl()}catch(e){console.error(e)}
   try{showStreaks();monthView(0)}catch(e){console.error(e)}
-  try{PGX=progress()}catch(e){PGX={}}try{showProg()}catch(e){}try{recommend()}catch(e){$("hint").textContent="Couldn’t build recommendations: "+e.message}
+  try{PGX=progress()}catch(e){PGX={}}try{showProg()}catch(e){}if(deloadOn())$("pg").innerHTML="";try{recommend()}catch(e){$("hint").textContent="Couldn’t build recommendations: "+e.message}
   const wks=[...new Set(rows.map(r=>monday(r.date||today)))].sort();
   const cur=$("pw").value||wks[wks.length-1]||monday(today);
   $("pw").innerHTML=(wks.length?wks:[monday(today)]).map(w=>`<option value="${w}" ${w===cur?"selected":""}>${fmt(w)}</option>`).join("");
   $("cm").innerHTML=["All muscles",...MUSCLES].map(m=>`<option ${m===$("cm").dataset.v?"selected":""}>${m}</option>`).join("");
   const wk=rows.filter(r=>monday(r.date||today)===$("pw").value);
   let h="<tr><th>Muscle</th><th>Sets</th><th>Target</th><th>Status</th></tr>";
-  for(const m of MUSCLES){const n=wk.filter(r=>r.muscle===m).reduce((s,r)=>s+calc(r).n,0),t=TARGET[m],st=!t?"":n<t[0]?"Low":n>t[1]?"High":"OK";
+  for(const m of MUSCLES){const n=wk.filter(r=>r.muscle===m).reduce((s,r)=>s+calc(r).n,0),t=tg(m),st=!t?"":n<t[0]?"Low":n>t[1]?"High":"OK";
     h+=`<tr><td>${m}</td><td>${n}</td><td>${t?t[0]+"–"+t[1]:"—"}</td><td class="tag ${st}">${st||"—"}</td></tr>`}
   $("prog").innerHTML=h;try{chart(wks)}catch(e){console.error(e)}
   let l="<tr><th>Date</th><th>Plan</th><th>Day</th><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps</th><th>Volume</th><th>Notes</th><th></th></tr>";
@@ -286,7 +326,7 @@ function chart(wks){
   const W=Math.max(320,wks.length*70+50),H=190,svg=$("chart");svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.style.minWidth=W+"px";
   if(!wks.length){svg.innerHTML=`<text x="10" y="30" fill="var(--mu)" font-size="13">Log a workout to see weekly sets.</text>`;return}
   const v=wks.map(w=>rows.filter(r=>monday(r.date||today)===w&&(m==="All muscles"||r.muscle===m)).reduce((s,r)=>s+calc(r).n,0));
-  const t=TARGET[m],mx=Math.max(...v,t?t[1]:0,1),y=n=>150-n/mx*130;
+  const t=tg(m),mx=Math.max(...v,t?t[1]:0,1),y=n=>150-n/mx*130;
   let o=t?`<rect x="30" y="${y(t[1])}" width="${W-30}" height="${y(t[0])-y(t[1])}" fill="var(--ok)" opacity=".15"/>`:"";
   v.forEach((n,i)=>{const x=40+i*70;o+=`<rect x="${x}" y="${y(n)}" width="40" height="${150-y(n)}" rx="4" fill="var(--ac)"/><text x="${x+20}" y="${y(n)-5}" text-anchor="middle" font-size="12" fill="var(--tx)">${n}</text><text x="${x+20}" y="170" text-anchor="middle" font-size="11" fill="var(--mu)">${fmt(wks[i])}</text>`});
   svg.innerHTML=o+`<line x1="30" x2="${W}" y1="150" y2="150" stroke="var(--bd)"/>`+(t?`<text x="${W-4}" y="14" text-anchor="end" font-size="11" fill="var(--ok)">target ${t[0]}–${t[1]}</text>`:"");
@@ -369,6 +409,17 @@ $("log").onclick=async e=>{const ed=e.target.closest("button[data-e]");if(ed){st
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const LS=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const SV=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let MODE=LS("fbt.mode")==="ppl"?"ppl":"full",DLOAD=LS("fbt.deload")||"";   // routine, and the start date of the current deload week
+const tg=m=>(MODE==="ppl"?TARGET_PPL:TARGET)[m];
+const deloadOn=()=>!!DLOAD&&(new Date(today+"T12:00:00")-new Date(DLOAD+"T12:00:00"))/DAY<7;   // a deload lasts 7 days, then switches itself off
+const deloadEnd=()=>{const d=new Date(DLOAD+"T12:00:00");d.setDate(d.getDate()+6);return iso(d)};
+function syncCtl(){$("mode").value=MODE;$("sesw").hidden=MODE!=="ppl";
+  if(MODE==="ppl"){const s=LS("fbt.ses");$("ses").options[0].textContent="Auto ("+pplDay(true).g+")";$("ses").value=s&&s.d===today&&GROUPS[s.v]?s.v:""}
+  $("dl").checked=deloadOn();$("dlt").textContent=deloadOn()?"Deload week (through "+fmt(deloadEnd())+")":"Deload week"}
+function planSel(){if(EDIT)return;$("plan").value=deloadOn()?"Deload":MODE==="ppl"?pplDay().g:"Full Body"}   // Plan label follows the routine
+$("mode").onchange=()=>{MODE=$("mode").value;SV("fbt.mode",MODE);planSel();render()};
+$("ses").onchange=()=>{SV("fbt.ses",$("ses").value?{d:today,v:$("ses").value}:null);planSel();render()};
+$("dl").onchange=()=>{DLOAD=$("dl").checked?today:"";SV("fbt.deload",DLOAD);planSel();render()};
 let CFG=LS("fbt.cfg")||{},DEL=LS("fbt.del")||[],busy=false,again=false,waiters=[];
 const persist=()=>{SV("fbt.rows",rows);SV("fbt.plan",plan);SV("fbt.del",DEL)};
 async function sync(){
@@ -403,8 +454,8 @@ $("csv").onclick=()=>{
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([L.join("\n")],{type:"text/csv"}));a.download="fitness-log.csv";a.click();
 };
 rows=LS("fbt.rows")||[];plan=LS("fbt.plan")||[];
-if(!LS("fbt.seed2")){const have=new Set(names().map(n=>n.toLowerCase()));SEED.forEach(([exercise,muscle,sets,reps,load])=>{if(!have.has(exercise.toLowerCase()))plan.push({new:1,exercise,muscle,sets,reps,load})});SV("fbt.seed2",1);persist()}
-render();sync();
+if(!LS("fbt.seed3")){const have=new Set(names().map(n=>n.toLowerCase()));SEED.forEach(([exercise,muscle,sets,reps,load])=>{if(!have.has(exercise.toLowerCase()))plan.push({new:1,exercise,muscle,sets,reps,load})});SV("fbt.seed3",1);persist()}
+planSel();render();sync();
 addEventListener("online",()=>sync());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
