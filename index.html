@@ -70,6 +70,7 @@ button.x{padding:8px 12px;min-height:38px}
 input[type=checkbox]{width:20px;height:20px;padding:0}
 @media (max-width:520px){.elrow{grid-template-columns:1fr 1fr!important}.elrow>div:first-child{grid-column:1/-1}}
 .rtc button.p{color:var(--bg)}
+.rg{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px;font-size:11px}.rgc{border:1px solid var(--bd);border-radius:999px;padding:1px 8px;color:var(--mu)}.rgc.z{color:var(--lo);border-color:var(--lo)}
 </style>
 </head>
 <body>
@@ -247,9 +248,13 @@ function progress(){
         :nx?`Top of the range (${hi}) on every set twice at ${L.ld} lb. Slow the lowering (3 s + a pause) first; when that's easy, move to ${nx} lb and restart at ${lo} reps.`
         :`Top of the range (${hi}) on every set twice at ${L.ld} lb, your heaviest. Slow the lowering (4 s + a pause) or add a set.${step}`};
       continue}
+    // Stall: the last two sessions at this load (so one bad day doesn't count) did not beat the earlier ones on total reps, on the weakest set, or on number of sets
     const W=ss.filter(s=>s.ld===L.ld&&L.t-s.t<=21*DAY);
-    if(W.length>=3&&L.t-W[0].t>=14*DAY&&sum(L)<=Math.max(...W.slice(0,-1).map(sum)))
-      out[p.exercise]={kind:"stall",msg:`No rep gain in about 3 weeks at ${L.ld}${isNaN(parseFloat(L.ld))?"":" lb"}. Check sleep and food, take an easier week, or slow the lowering.`};
+    if(W.length>=3&&L.t-W[0].t>=14*DAY){
+      const rec=W.slice(-2),old=W.slice(0,-2),mn=s=>Math.min(...s.a),
+        bT=Math.max(...old.map(sum)),bM=Math.max(...old.map(mn)),bN=Math.max(...old.map(s=>s.a.length));
+      if(!rec.some(s=>sum(s)>bT||mn(s)>bM||s.a.length>bN))
+        out[p.exercise]={kind:"stall",msg:`No gain in about 3 weeks at ${L.ld}${isNaN(parseFloat(L.ld))?"":" lb"}: total reps, weakest set and set count have not improved (latest ${L.a.join("/")}). Check sleep and food, take an easier week, or slow the lowering.`}}
   }
   return out}
 function showProg(){
@@ -270,15 +275,20 @@ function streakStats(){
   if(ks.length)for(let x=ks[0];x<=cw;x=addW(x,1)){run=ok(x)?run+1:0;best=Math.max(best,run)}
   return{cur,best,goal:goalFor(cw),week:wk[cw]||0,total:days.size,month:[...days].filter(d=>d.startsWith(today.slice(0,7)+"-")).length}}
 function monthData(y,m){
-  const pre=mpre(y,m),sets={},mus={};
+  const pre=mpre(y,m),sets={},mus={},reg={};
   (Array.isArray(rows)?rows:[]).forEach(r=>{if(!r||!String(r.date||"").startsWith(pre))return;const n=calc(r).n;
-    sets[r.date]=(sets[r.date]||0)+n;if(r.muscle)mus[r.muscle]=(mus[r.muscle]||0)+n});
-  return{sets,mus,workouts:Object.keys(sets).length}}
+    sets[r.date]=(sets[r.date]||0)+n;if(r.muscle){mus[r.muscle]=(mus[r.muscle]||0)+n;if(REGIONS[r.muscle]){const g=REGION[r.exercise]||"Other";(reg[r.muscle]=reg[r.muscle]||{})[g]=(reg[r.muscle][g]||0)+n}}});
+  return{sets,mus,reg,workouts:Object.keys(sets).length}}
 //RENDER
 function showStreaks(){
   const s=streakStats(),tile=(b,t)=>`<div class="tile"><b>${b}</b><span>${t}</span></div>`;
   $("streaks").innerHTML=tile((s.cur?"🔥 ":"")+s.cur+" wk","Current streak ("+s.goal+"+ workouts/week)")+tile(s.best+" wk","Longest streak")
     +tile(s.week+" / "+s.goal,"Workouts this week")+tile(s.month,"Workouts this month")}
+// Region chips under a muscle bar: sets this month per part of the muscle (regions come from REGIONS; zero regions are highlighted)
+function regRow(m,n,r){
+  if(!n||!REGIONS[m])return"";r=r||{};
+  const names=Object.keys(REGIONS[m]).concat(r.Other?["Other"]:[]);
+  return`<div class="rg">${names.map(g=>`<span class="rgc${r[g]?"":" z"}">${esc(g)} ${r[g]||0}</span>`).join("")}</div>`}
 function monthView(delta){
   const t=new Date(today+"T12:00:00");MON=MON||{y:t.getFullYear(),m:t.getMonth()};
   if(delta>0&&MON.y*12+MON.m>=t.getFullYear()*12+t.getMonth())delta=0;   // no future months
@@ -293,7 +303,7 @@ function monthView(delta){
     c+=`<i class="${lv?"l"+lv:""}${k===today?" now":""}" title="${tip}" data-t="${tip}"><em>${d}</em>${n?`<small>${n}</small>`:""}</i>`}
   $("cal").innerHTML=c;$("caltip").textContent="";
   const E=MUSCLES.map(m=>[m,D.mus[m]||0]).sort((a,b)=>b[1]-a[1]),top=Math.max(1,E[0][1]),all=E.reduce((a,e)=>a+e[1],0);
-  $("hot").innerHTML=all?E.map(([m,n])=>`<div class="bar"><span>${esc(m)}</span><div class="tr"><i style="width:${Math.round(100*n/top)}%;opacity:${(.35+.65*n/top).toFixed(2)}"></i></div><span>${n} sets</span></div>`).join(""):"<div class=\"sub\">No sets logged this month.</div>";
+  $("hot").innerHTML=all?E.map(([m,n])=>`<div class="bar"><span>${esc(m)}</span><div class="tr"><i style="width:${Math.round(100*n/top)}%;opacity:${(.35+.65*n/top).toFixed(2)}"></i></div><span>${n} sets</span></div>${regRow(m,n,D.reg[m])}`).join(""):"<div class=\"sub\">No sets logged this month.</div>";
   const low=E.filter(e=>e[1]===E[E.length-1][1]).map(e=>e[0]);
   $("hsub").textContent=all?(E[0][1]>0?"Hottest: "+E[0][0]+". ":"")+"Least trained: "+(low.length>3?low.slice(0,3).join(", ")+"…":low.join(", "))+" ("+E[E.length-1][1]+")":""}
 function pplDay(forceAuto){
