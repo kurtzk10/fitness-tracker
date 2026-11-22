@@ -78,6 +78,15 @@ th{color:var(--mu);font-weight:600}
 <div id="pg"></div>
 </section>
 
+<section class="card" id="timercard">
+<h2>Rest timer</h2>
+<div class="row" id="rest" style="margin:0">
+<button data-t="60">1 min</button><button data-t="120">2 min</button>
+<span id="tm" aria-live="off" style="font-size:22px;font-weight:700;min-width:64px;font-variant-numeric:tabular-nums">0:00</span>
+<button id="tstop" hidden>Stop</button>
+</div>
+</section>
+
 <section class="card">
 <h2>Log an exercise</h2>
 <div class="grid">
@@ -430,6 +439,23 @@ $("circ").onclick=useEx;$("pg").onclick=useEx;
 $("log").onclick=async e=>{const ed=e.target.closest("button[data-e]");if(ed){startEdit(ed.dataset.e);return}
   const b=e.target.closest("button[data-i]");if(!b||!confirm("Delete this entry?"))return;
   const d=rows.splice(+b.dataset.i,1)[0];DEL.push(d.id);if(EDIT===d.id){endEdit();["ex","load","s1","s2","s3","notes"].forEach(i=>$(i).value="")}render();await saveRows()};
+// Rest timer: counts down to a fixed end time (stays correct if the tab sleeps), beeps and vibrates at zero
+let TEND=0,TIV=null,ACX=null;
+function beep(){
+  try{const c=ACX;if(c)[0,.25,.5].forEach(d=>{const o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=.25;o.connect(g);g.connect(c.destination);o.start(c.currentTime+d);o.stop(c.currentTime+d+.15)})}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([200,100,200,100,200])}catch(e){}}
+function tick(){
+  const left=Math.max(0,Math.ceil((TEND-Date.now())/1000));
+  $("tm").textContent=left?Math.floor(left/60)+":"+String(left%60).padStart(2,"0"):"Go!";
+  document.title=left?Math.floor(left/60)+":"+String(left%60).padStart(2,"0")+" · Rest":"Full-Body Tracker";
+  if(!left){clearInterval(TIV);TIV=null;$("tstop").hidden=true;[...document.querySelectorAll("#rest [data-t]")].forEach(b=>b.classList.remove("p"));beep()}}
+function startT(sec,btn){
+  try{ACX=ACX||new(window.AudioContext||window.webkitAudioContext)();ACX.resume&&ACX.resume()}catch(e){}   // created on a tap so the beep is allowed
+  clearInterval(TIV);TEND=Date.now()+sec*1000;TIV=setInterval(tick,250);tick();$("tstop").hidden=false;
+  [...document.querySelectorAll("#rest [data-t]")].forEach(b=>b.classList.toggle("p",b===btn))}
+function stopT(){clearInterval(TIV);TIV=null;$("tm").textContent="0:00";$("tstop").hidden=true;document.title="Full-Body Tracker";[...document.querySelectorAll("#rest [data-t]")].forEach(b=>b.classList.remove("p"))}
+$("rest").onclick=e=>{const b=e.target.closest("button[data-t]");if(b)startT(+b.dataset.t,b);else if(e.target.id==="tstop")stopT()};
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&TIV)tick()});
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const LS=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const SV=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
